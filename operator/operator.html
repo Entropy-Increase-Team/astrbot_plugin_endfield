@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{name}} - 终末地干员</title>
+  <link rel="stylesheet" href="{{pluResPath}}operator/operator.css">
+  <style>
+    body, #container {
+      background: #f1f5f9;
+      color: #1f2937;
+    }
+    body {
+      width: 1000px;
+      min-height: 1750px;
+      margin: 0;
+      padding: 0;
+    }
+    #container {
+      position: relative;
+      width: 100%;
+      min-height: 1750px;
+      overflow: visible;
+    }
+    .bg-layer {
+      background-image: url({{pluResPath}}img/opbg.png);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+  </style>
+</head>
+<body>
+  {{if friendPanel}}
+  <div class="oppp-page">
+    <div class="oppp-hero" style="background-image: url({{illustrationUrl}});">
+      <div class="oppp-user-tag">
+        {{if userAvatar}}<img src="{{userAvatar}}" class="oppp-user-avatar" alt="用户头像">{{/if}}
+        <div class="oppp-user-meta">
+          <div class="oppp-user-name">{{userNickname}}</div>
+          <div class="oppp-user-level">Lv.{{userLevel}}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="oppp-top-merged">
+      <div class="oppp-main-card">
+        <div class="oppp-left">
+          <div class="oppp-level-label">LEVEL</div>
+          <div class="oppp-level-row">
+            <div class="oppp-level-num">{{friendPanel.level}}</div>
+            <div class="oppp-level-dots">
+              {{each friendPanel.stars}}<span class="oppp-dot"></span>{{/each}}
+            </div>
+          </div>
+          <div class="oppp-char-name">{{friendPanel.nameCn}}</div>
+          <div class="oppp-stars">
+            {{each friendPanel.stars}}<img src="{{pluResPath}}meta/potential/star.png" alt="" class="oppp-star">{{/each}}
+          </div>
+          <div class="oppp-tag-row">
+            {{each tagsList}}<span class="oppp-tag">{{$value}}</span>{{/each}}
+          </div>
+
+          <div class="oppp-left-skills">
+            <div class="oppp-left-skills-title">技能 <span>SKILLS</span></div>
+            <div class="oppp-skill-grid oppp-skill-grid-compact">
+              {{each displaySkills s}}
+              {{if s.empty}}
+              <div class="oppp-skill-item empty">
+                <div class="oppp-skill-icon"></div>
+                <div class="oppp-skill-name">—</div>
+              </div>
+              {{else}}
+              <div class="oppp-skill-item">
+                <div class="oppp-skill-icon">
+                  <img src="{{s.iconUrl}}" alt="{{s.name}}">
+                  <div class="oppp-skill-rank">{{s.level}}{{if s.maxLevel}}/{{s.maxLevel}}{{/if}}</div>
+                </div>
+                <div class="oppp-skill-name">{{s.name}}</div>
+              </div>
+              {{/if}}
+              {{/each}}
+            </div>
+          </div>
+        </div>
+
+        <div class="oppp-right">
+          <div class="oppp-stat-item">
+            <div class="oppp-stat-label">生命值 HP</div>
+            <div class="oppp-stat-val">
+              <div class="oppp-stat-main">{{friendPanel.core.hp}}</div>
+              <div class="oppp-stat-sub">{{friendPanel.core.hpSub}}</div>
+            </div>
+          </div>
+          <div class="oppp-stat-item">
+            <div class="oppp-stat-label">攻击力 ATK</div>
+            <div class="oppp-stat-val">
+              <div class="oppp-stat-main">{{friendPanel.core.atk}}</div>
+              <div class="oppp-stat-sub">{{friendPanel.core.atkSub}}</div>
+            </div>
+          </div>
+          <div class="oppp-stat-item">
+            <div class="oppp-stat-label">防御力 DEF</div>
+            <div class="oppp-stat-val">
+              <div class="oppp-stat-main">{{friendPanel.core.def}}</div>
+              <div class="oppp-stat-sub">{{friendPanel.core.defSub}}</div>
+            </div>
+          </div>
+
+          <div class="oppp-mini-grid">
+            <div class="oppp-mini-item"><span class="oppp-mini-label">敏捷 AGI</span><span class="oppp-mini-num">{{friendPanel.mini.agi}}</span></div>
+            <div class="oppp-mini-item"><span class="oppp-mini-label">力量 STR</span><span class="oppp-mini-num">{{friendPanel.mini.str}}</span></div>
+            <div class="oppp-mini-item"><span class="oppp-mini-label">智识 WISD</span><span class="oppp-mini-num">{{friendPanel.mini.wisd}}</span></div>
+            <div class="oppp-mini-item"><span class="oppp-mini-label">意志 WILL</span><span class="oppp-mini-num">{{friendPanel.mini.will}}</span></div>
+            <div class="oppp-mini-item"><span class="oppp-mini-label">暴击率 CRT</span><span class="oppp-mini-num">{{friendPanel.mini.crt}}</span></div>
+            <div class="oppp-mini-item"><span class="oppp-mini-label">暴击伤害 CDMG</span><span class="oppp-mini-num">{{friendPanel.mini.cdmg}}</span></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <div class="oppp-box oppp-gear-section">
+      <div class="oppp-box-title">武器与装备 <span>GEAR</span></div>
+      <div class="oppp-gear-grid">
+        {{each gearCards c}}
+        <div class="oppp-gear-card" data-type="{{c.type}}">
+          <div class="oppp-gear-name">{{c.name}}</div>
+          <div class="oppp-gear-toprow">
+            <div class="oppp-gear-level"><span class="oppp-gear-level-num">{{c.level}}</span><span class="oppp-gear-level-label">LEVEL</span></div>
+            <div class="oppp-gear-img">{{if c.iconUrl}}<img src="{{c.iconUrl}}" alt="{{c.name}}">{{/if}}</div>
+          </div>
+          <div class="oppp-gear-stars">{{each c.stars}}<img src="{{pluResPath}}meta/potential/star.png" alt="" class="oppp-gear-star">{{/each}}</div>
+          <div class="oppp-gear-divider"></div>
+          <div class="oppp-gear-affixes">
+            {{each c.affixes a}}
+            {{if a.empty}}
+            <div class="oppp-gear-affix empty"><span class="oppp-gear-affix-name">&nbsp;</span><span class="oppp-gear-affix-val">&nbsp;</span></div>
+            {{else}}
+            <div class="oppp-gear-affix"><span class="oppp-gear-affix-name">{{a.name}}</span><span class="oppp-gear-affix-val">{{a.value}}</span></div>
+            {{/if}}
+            {{/each}}
+          </div>
+        </div>
+        {{/each}}
+      </div>
+    </div>
+
+    <footer class="footer oppp-footer">
+      <div class="copyright">{{@copyright || sys?.copyright}}</div>
+    </footer>
+  </div>
+  {{else}}
+  <div id="container" class="container">
+    <div class="bg-layer"></div>
+    <div class="grid-deco"></div>
+    <img src="{{illustrationUrl}}" alt="{{name}}" class="char-layer">
+    <div class="overlay-gradient"></div>
+
+    <div class="ui-layer">
+      <!-- 左上角用户卡片（参考 list 页） -->
+      <div class="operator-top-bar">
+        <div class="user-info">
+          {{if userAvatar}}
+          <img src="{{userAvatar}}" alt="用户头像" class="user-avatar">
+          {{/if}}
+          <div class="user-details">
+            <div class="user-name">{{userNickname}}</div>
+            <div class="user-level">Lv.{{userLevel}}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="header">
+        <!-- 左侧：身份信息卡 -->
+        <div class="header-main-card">
+          <div class="header-top-info">
+            {{if professionIconUrl}}
+            <div class="header-large-icon">
+              <img src="{{professionIconUrl}}" alt="">
+            </div>
+            {{/if}}
+            <div class="header-text-info">
+              <h1 class="char-name">{{name}}</h1>
+              <div class="meta-row-compact">
+                {{if propertyIconUrl}}<img src="{{propertyIconUrl}}" class="meta-small-icon">{{/if}}
+                <span class="meta-separator"></span>
+                <div class="rarity-compact">
+                  {{each stars}}<img src="{{pluResPath}}meta/potential/star.png" alt="" class="rarity-star-tiny">{{/each}}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="header-tags-grid">
+            {{each tagsList}}
+            <div class="tag-rect"><span>{{$value}}</span></div>
+            {{/each}}
+          </div>
+        </div>
+
+        <!-- 右侧：等级与潜能卡（左上 Lv. + 数字，下方图标） -->
+        <div class="header-level-card">
+          <div class="level-display">
+            <span class="level-prefix">Lv.</span>
+            <span class="level-num">{{level}}</span>
+          </div>
+          <div class="potential-display-row">
+            {{each potentialStars}}
+            <img src="{{pluResPath}}meta/potential/P{{$index+1}}.png" alt="" class="potential-dot {{if $value}}filled{{/if}}">
+            {{/each}}
+          </div>
+        </div>
+      </div>
+
+      <div class="content-panel">
+        <!-- 技能与武器同行 -->
+        <div class="skills-weapon-row">
+          <div class="skills-section">
+            <div class="section-title">技能 <span>SKILLS</span></div>
+            <div class="skills-card">
+              <div class="skills-row">
+                {{each displaySkills s}}
+                {{if s.empty}}
+                <div class="skill-item empty"><div class="skill-icon"><span class="empty-label">◎</span></div><span class="skill-name">—</span></div>
+                {{else}}
+                <div class="skill-item">
+                  <div class="skill-icon">
+                    <img src="{{s.iconUrl}}" alt="{{s.name}}" class="skill-img">
+                    <div class="skill-rank">RANK {{s.level}}{{if s.maxLevel}}/{{s.maxLevel}}{{/if}}</div>
+                  </div>
+                  <span class="skill-name">{{s.name}}</span>
+                </div>
+                {{/if}}
+                {{/each}}
+              </div>
+            </div>
+          </div>
+
+          <div class="weapon-section">
+            <div class="section-title weapon-title"><span class="title-cn">武器</span><span class="title-sep">|</span><span class="title-en">WEAPON</span></div>
+            {{if weapon}}
+            <div class="weapon-content">
+              <div class="weapon-info">
+                <div class="weapon-level-row">
+                  <span class="weapon-level-num">{{weapon.level}}</span>
+                  <span class="weapon-level-label">LEVEL</span>
+                </div>
+                <div class="weapon-stars-row">
+                  {{each weapon.stars}}
+                  <img src="{{pluResPath}}meta/potential/star.png" alt="" class="weapon-star-icon">
+                  {{/each}}
+                </div>
+                <div class="weapon-name-text">{{weapon.name}}</div>
+              </div>
+              <div class="weapon-img-wrap">
+                <img src="{{weapon.iconUrl}}" alt="{{weapon.name}}" class="weapon-img">
+              </div>
+            </div>
+            {{else}}
+            <div class="weapon-content empty">
+              <div class="weapon-info"><div class="weapon-name-text">未装备武器</div></div>
+            </div>
+            {{/if}}
+          </div>
+        </div>
+
+        <div class="equip-section">
+          <div class="section-title">装备 <span>EQUIPMENT</span></div>
+          <div class="equip-grid">
+            <div class="equip-left">
+              {{if bodyEquip}}
+              <div class="equip-card big">
+                <div class="equip-name">{{bodyEquip.name}}</div>
+                <div class="equip-level">{{bodyEquip.level}}<span>LEVEL</span></div>
+                <div class="equip-stars-row">
+                  {{each bodyEquip.stars}}<img src="{{pluResPath}}meta/potential/star.png" alt="" class="equip-star-tiny">{{/each}}
+                </div>
+                <div class="equip-img-wrap">
+                  <img src="{{bodyEquip.iconUrl}}" alt="{{bodyEquip.name}}" class="equip-icon">
+                </div>
+              </div>
+              {{else}}
+              <div class="empty-slot equip-card big"><div class="empty-label">EMPTY</div></div>
+              {{/if}}
+            </div>
+
+            <div class="equip-right">
+              {{if armEquip}}
+              <div class="equip-card">
+                <div class="equip-name-row">
+                  <div class="equip-name">{{armEquip.name}}</div>
+                </div>
+                <div class="equip-content-row">
+                  <div class="equip-info-wrap">
+                    <div class="equip-level">{{armEquip.level}}<span>LEVEL</span></div>
+                    <div class="equip-stars-row">
+                      {{each armEquip.stars}}<img src="{{pluResPath}}meta/potential/star.png" alt="" class="equip-star-tiny">{{/each}}
+                    </div>
+                  </div>
+                  <div class="equip-img-wrap">
+                    <img src="{{armEquip.iconUrl}}" alt="{{armEquip.name}}" class="equip-icon">
+                  </div>
+                </div>
+              </div>
+              {{else}}
+              <div class="equip-card empty-slot"><div class="empty-label">EMPTY</div></div>
+              {{/if}}
+              
+              {{if firstAccessory}}
+              <div class="equip-card">
+                <div class="equip-name-row">
+                  <div class="equip-name">{{firstAccessory.name}}</div>
+                </div>
+                <div class="equip-content-row">
+                  <div class="equip-info-wrap">
+                    <div class="equip-level">{{firstAccessory.level}}<span>LEVEL</span></div>
+                    <div class="equip-stars-row">
+                      {{each firstAccessory.stars}}<img src="{{pluResPath}}meta/potential/star.png" alt="" class="equip-star-tiny">{{/each}}
+                    </div>
+                  </div>
+                  <div class="equip-img-wrap">
+                    <img src="{{firstAccessory.iconUrl}}" alt="{{firstAccessory.name}}" class="equip-icon">
+                  </div>
+                </div>
+              </div>
+              {{else}}
+              <div class="equip-card empty-slot"><div class="empty-label">EMPTY</div></div>
+              {{/if}}
+              
+              {{if secondAccessory}}
+              <div class="equip-card">
+                <div class="equip-name-row">
+                  <div class="equip-name">{{secondAccessory.name}}</div>
+                </div>
+                <div class="equip-content-row">
+                  <div class="equip-info-wrap">
+                    <div class="equip-level">{{secondAccessory.level}}<span>LEVEL</span></div>
+                    <div class="equip-stars-row">
+                      {{each secondAccessory.stars}}<img src="{{pluResPath}}meta/potential/star.png" alt="" class="equip-star-tiny">{{/each}}
+                    </div>
+                  </div>
+                  <div class="equip-img-wrap">
+                    <img src="{{secondAccessory.iconUrl}}" alt="{{secondAccessory.name}}" class="equip-icon">
+                  </div>
+                </div>
+              </div>
+              {{else}}
+              <div class="equip-card empty-slot"><div class="empty-label">EMPTY</div></div>
+              {{/if}}
+              
+              {{if tacticalItem}}
+              <div class="equip-card tactical">
+                <div class="equip-name-row">
+                  <div class="equip-name">{{tacticalItem.name}}</div>
+                </div>
+                <div class="equip-content-row">
+                  <div class="equip-info-wrap">
+                    <span class="tactical-tag">战术物品</span>
+                  </div>
+                  <div class="equip-img-wrap">
+                    <img src="{{tacticalItem.iconUrl}}" alt="{{tacticalItem.name}}" class="equip-icon">
+                  </div>
+                </div>
+              </div>
+              {{else}}
+              <div class="equip-card empty-slot"><div class="empty-label">EMPTY</div></div>
+              {{/if}}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="footer">
+        <div class="copyright">{{@copyright || sys?.copyright}}</div>
+      </footer>
+    </div>
+  </div>
+  {{/if}}
+</body>
+</html>
