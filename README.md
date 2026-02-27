@@ -10,28 +10,29 @@
 
 基于 [森空岛 API](https://skland.com) 及 [终末地协议终端](https://end.shallow.ink) 的 AstrBot 插件，提供详尽的玩家数据查询、理智展示、干员面板及抽卡分析功能。
 
-# 注：本插件正在开发中，部分功能不可用（readme中列出的指令可用），本次提交仅占坑
+## 注：本插件开发中，部分功能不可用（readme中列出的指令可用），本次提交仅占坑
 
 ## 安装与配置
 
 1. 在 AstrBot 插件管理器中搜索 `astrbot_plugin_endfield` 并安装。
 2. 确保在系统环境中已安装并正确配置浏览器依赖以供 Playwright 渲染：`playwright install chromium`
 3. 插件配置项（按需设置）：
-   - `api_key`：可选。如需高级功能，请前往 [浅墨服务构建](https://end.shallow.ink) 获取。
+   - `api_key`：请前往 [浅墨服务构建](https://end.shallow.ink) 获取。
    - `auth_client_name`：网页授权登录时的显示名称（默认：`终末地机器人`）
    - `operator_list_bg`：干员列表背景图选择（`random`, `bg1.png`, `bg2.png`）
    - `render_timeout`：单次图片渲染的全局超时限制（毫秒）。
 
 
 ## 📂 文件结构与实现
+<img width="639" height="365" alt="image" src="https://github.com/user-attachments/assets/c653513c-963b-4e53-b961-8a9367f60341" />
 
 ### 项目目录
 - `main.py`: **插件入口**。负责 AstrBot 指令过滤、权限校验及各模块逻辑编排。
 - `core/`: **核心逻辑组件**。
-    - `client.py`: API 异步客户端，封装了森空岛与浅墨的所有网络请求逻辑（内置 SSL 525 修复）。
+    - `client.py`: API 异步客户端，封装了森空岛与浅墨的所有网络请求逻辑。
     - `user.py`: 用户数据中心，管理账号绑定关系与抽卡分析状态。
     - `render.py`: 渲染助手，基于 HTML 模板的图形化输出封装。
-- `data/`: **持久化存储**。使用 local JSON 存储用户的绑定令牌，无需外部数据库。
+- `data/`: **持久化存储**。使用 local JSON 存储用户的绑定令牌。
 - `resources/`: **视觉资产与模板**。
     - `cache/`: 并发下载器缓存目录，存储预处理后的干员立绘与头像。
     - `operator/`, `gacha/`, `stamina/`, `help/`: 采用 **Jinja2** 编写的动态 HTML 模板。
@@ -139,29 +140,30 @@
 
 ## 更新日志
 
-## 1.3.0 (2026-03-01)
-- 抽卡分析布局重大重构：移除遮挡文字的 5 星标记，回归清爽界面
-- 强化图片并发下载器：支持协议相对路径（`//`），兼容更多 CDN 场景
-- 增加资源持久化字段兼容性：支持多版本 Wiki 及游戏接口字段（snake_case & camelCase）
-- 优化渲染稳定性：Playwright 导航超时增加至 30s，降低渲染失败率
-- 修复了 `qr_login` 指令中 `base64` 未定义的 NameError
+## 1.3.0 (2026-02-27)
+- 抽卡分析重构：移除 5 星标记
+- 优化渲染稳定性：Playwright 导航超时增加至 30s
 
 ## 1.2.0 (2026-02-27)
-- 抽卡分析异步化优化，支持数千条记录快速渲染
-- 便签面板正版化 UI 重绘（支持干员头像显示）
-- 干员列表 UI 修复，支持玩家头像、等级及随机背景
-- 帮助菜单重绘为精美图片（`:zmd` 指令）
-- 优化了图片请求并发逻辑，大幅降低卡顿
+- 抽卡分析异步化优化
+- 便签面板UI重绘
+- 干员列表UI修复
+- 帮助菜单重绘为图片（`zmd` 指令）
+- 优化了图片请求并发逻辑
 
 ## 1.1.0 (2026-02-26)
-- 修复了理智查询双发的问题
-- 增加了干员列表基础功能
-- 本地化 MD5 图片缓存机制上线
+- 修复了理智查询问题
+- 增加了干员列表功能
 
 ## 鸣谢
 
 本项目逻辑主要移植与参考自 Yunzai 优秀插件 [endfield-plugin](https://github.com/Entropy-Increase-Team/endfield-plugin)。
 - 感谢原作者及贡献者：[@QingYingX](https://github.com/QingYingX) 与 [@浅巷墨黎（Dnyo666）](https://github.com/dnyo666)
-- 感谢 [终末地协议终端](https://end.shallow.ink) 提供的底层封装。
+- 感谢 [终末地协议终端](https://end.shallow.ink) 提供的底层封装和API支持。
+- 感谢熵增项目组的移植支持
 
 如有其它问题，请提交 Issue。
+> [!TIP]
+> 终末地-协议终端交流群，欢迎加入 [160759479](https://qm.qq.com/q/zZXruW6V4Q) 交流反馈。
+> [!TIP]
+> astrbot移植作者bvzrays插件交流反馈，欢迎加入 [870543663](https://qm.qq.com/q/kPxQZy5gg8) 交流反馈。
