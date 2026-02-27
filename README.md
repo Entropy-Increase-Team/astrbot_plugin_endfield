@@ -2,26 +2,7 @@
 
 基于 [森空岛 API](https://skland.com) 及 [终末地协议终端](https://end.shallow.ink) 的 AstrBot 插件，提供详尽的玩家数据查询、理智展示、干员面板及抽卡分析功能。
 
-## 更新日志
-
-## 1.3.0 (2026-03-01)
-- 抽卡分析布局重大重构：移除遮挡文字的 5 星标记，回归清爽界面
-- 强化图片并发下载器：支持协议相对路径（`//`），兼容更多 CDN 场景
-- 增加资源持久化字段兼容性：支持多版本 Wiki 及游戏接口字段（snake_case & camelCase）
-- 优化渲染稳定性：Playwright 导航超时增加至 30s，降低渲染失败率
-- 修复了 `qr_login` 指令中 `base64` 未定义的 NameError
-
-## 1.2.0 (2026-02-27)
-- 抽卡分析异步化优化，支持数千条记录快速渲染
-- 便签面板正版化 UI 重绘（支持干员头像显示）
-- 干员列表 UI 修复，支持玩家头像、等级及随机背景
-- 帮助菜单重绘为精美图片（`:zmd` 指令）
-- 优化了图片请求并发逻辑，大幅降低卡顿
-
-## 1.1.0 (2026-02-26)
-- 修复了理智查询双发的问题
-- 增加了干员列表基础功能
-- 本地化 MD5 图片缓存机制上线
+# 注：本插件正在开发中，部分功能不可用（readme中列出的指令可用），本次提交仅占坑
 
 ## 安装与配置
 
@@ -32,6 +13,7 @@
    - `auth_client_name`：网页授权登录时的显示名称（默认：`终末地机器人`）
    - `operator_list_bg`：干员列表背景图选择（`random`, `bg1.png`, `bg2.png`）
    - `render_timeout`：单次图片渲染的全局超时限制（毫秒）。
+
 
 ## 📂 文件结构与实现
 
@@ -48,11 +30,7 @@
 - `_conf_schema.json`: 插件 WebUI 配置项 schema 定义。
 - `metadata.yaml`: 记录版本号、作者、仓库等插件元数据。
 
-### 技术选型与实现细节
-- **并发加速机制**：为了解决 Playwright 在 Windows 环境下加载远程图片慢的问题，插件实现了 `parallel_download_b64` 下载器。在生成图片前，会并行将所有所需的外部立绘（如干员面板、抽卡结果）预存到本地，并改用 `file:///` 协议加载，实现“秒级”出图。
-- **SSL 525 兼容性修复**：针对部分代理或网络环境下的 `SSL Handshake Failed` 报错，通过底层配置 `httpx` 客户端跳过验证并伪装 User-Agent，确保 API 连接的绝对稳定性。
-- **MD5 缓存持久化**：所有下载的外部图片均以 URL 的 MD5 为文件名进行重用。这不仅节省了流量，更保证了即使在无网络环境下（只要资源已缓存），渲染图依然能保持立绘完整。
-- **Jinja2 深度定制**：所有前端页面均经过重构以完全兼容 Jinja2，支持动态变量替换与条件渲染。
+
 
 ## 功能一览
 
@@ -74,6 +52,19 @@
 | `抽卡记录` | 查询近期抽卡历史记录 |
 | `抽卡分析` | 生成全卡池抽卡数据统计分析图 |
 | `签到` | 执行所有账号的森空岛每日签到 |
+
+## 功能截图
+| `便签`| 
+<img width="1700" height="1338" alt="a73ce8015048c7d0c7b6d67755120711" src="https://github.com/user-attachments/assets/d9c07469-f00d-42c2-820a-f46402adf714" />
+| `理智`| 
+<img width="1280" height="482" alt="4be3e81d3f4eb0ab686c2787b8ee9f70_720" src="https://github.com/user-attachments/assets/0a723c50-d81d-444f-932e-32918a0ee2ed" />
+| `干员列表`| 
+<img width="1083" height="1120" alt="image" src="https://github.com/user-attachments/assets/3355b411-215a-4bf9-b536-e67804e8d122" />
+| `抽卡分析（部分）`| 
+<img width="506" height="891" alt="image" src="https://github.com/user-attachments/assets/5e86a76b-0d06-4f7b-97fc-6b914f57efb3" />
+<img width="176" height="841" alt="image" src="https://github.com/user-attachments/assets/17d09d14-ad26-4499-8201-ddbcc72acda6" />
+| `抽卡记录`| 
+<img width="1440" height="1134" alt="87eb6ffe8ce92a37525f574c5fedcd87" src="https://github.com/user-attachments/assets/aacab909-6a04-467a-aeaf-a525558e1ddb" />
 
 ---
 
@@ -98,6 +89,27 @@
 若插件未能响应功能或图片无法渲染，请检查：
 1. 是否已执行 `playwright install chromium` 确保无头浏览器能正常捕捉画面。
 2. 若图片卡死、发生 500 报错，可进入 `render_cache/` 检查本地图片渲染情况。系统会自动清理该目录。
+
+## 更新日志
+
+## 1.3.0 (2026-03-01)
+- 抽卡分析布局重大重构：移除遮挡文字的 5 星标记，回归清爽界面
+- 强化图片并发下载器：支持协议相对路径（`//`），兼容更多 CDN 场景
+- 增加资源持久化字段兼容性：支持多版本 Wiki 及游戏接口字段（snake_case & camelCase）
+- 优化渲染稳定性：Playwright 导航超时增加至 30s，降低渲染失败率
+- 修复了 `qr_login` 指令中 `base64` 未定义的 NameError
+
+## 1.2.0 (2026-02-27)
+- 抽卡分析异步化优化，支持数千条记录快速渲染
+- 便签面板正版化 UI 重绘（支持干员头像显示）
+- 干员列表 UI 修复，支持玩家头像、等级及随机背景
+- 帮助菜单重绘为精美图片（`:zmd` 指令）
+- 优化了图片请求并发逻辑，大幅降低卡顿
+
+## 1.1.0 (2026-02-26)
+- 修复了理智查询双发的问题
+- 增加了干员列表基础功能
+- 本地化 MD5 图片缓存机制上线
 
 ## 鸣谢
 
