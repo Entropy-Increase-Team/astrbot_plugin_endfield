@@ -1,6 +1,13 @@
-# AstrBot 终末地协议终端插件
+<div align="center">
 
-基于 [森空岛 API](https://skland.com) 及 [终末地协议终端](https://end.shallow.ink) 的 AstrBot 插件，提供详尽的玩家数据查询、理智展示、干员面板及抽卡分析功能。
+![astrbot_plugin_endfield](https://socialify.git.ci/bvzrays/astrbot_plugin_endfield/image?description=1&forks=1&issues=1&language=1&name=1&owner=1&pattern=Circuit+Board&pulls=1&stargazers=1&theme=Dark)
+
+# astrbot_plugin_endfield
+
+基于 [森空岛 API](https://skland.com)  及 [终末地协议终端](https://end.shallow.ink) 的 AstrBot **终末地** 插件 · 绑定 / 便签 / 干员面板 / 抽卡分析 / 签到
+
+</div>
+
 
 # 注：本插件正在开发中，部分功能不可用（readme中列出的指令可用），本次提交仅占坑
 
