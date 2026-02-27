@@ -6,6 +6,8 @@ class Renderer:
     def __init__(self, res_path: str, plugin: Star):
         self.plugin = plugin
         self.res_path = res_path
+        self._browser = None
+        self._playwright = None
 
     def get_template(self, name: str) -> str:
         path = os.path.join(self.res_path, name)
@@ -83,8 +85,9 @@ class Renderer:
         import jinja2
         try:
             env = jinja2.Environment(autoescape=True)
-            data["_res_path"] = data["pluResPath"] = "X"
-            return env.from_string(template_str).render(**data)
+            data_copy = data.copy()
+            data_copy["_res_path"] = data_copy.get("pluResPath", "X")
+            return env.from_string(template_str).render(**data_copy)
         except Exception as e:
             from astrbot.api import logger
             logger.error(f"[Endfield Render] Jinja2 error: {e}")
@@ -101,34 +104,48 @@ class Renderer:
         
         for f in os.listdir(output_dir):
             if f.startswith("render_") and time.time() - os.path.getmtime(os.path.join(output_dir, f)) > 300:
-                try: os.remove(os.path.join(output_dir, f))
-                except: pass
+                try: 
+                    os.remove(os.path.join(output_dir, f))
+                except Exception as e: 
+                    from astrbot.api import logger
+                    logger.debug(f"[Endfield Render] Failed to clean cache file {f}: {e}")
 
         try:
-            async with async_playwright() as p:
-                browser = await p.chromium.launch()
-                context = await browser.new_context(device_scale_factor=2, viewport={"width": 850, "height": 800})
-                page = await context.new_page()
+            if not self._playwright:
+                self._playwright = await async_playwright().start()
+            if not self._browser:
+                self._browser = await self._playwright.chromium.launch()
                 
-                temp_html = os.path.join(os.path.dirname(os.path.abspath(os.path.join(self.res_path, name))), f"tmp_{uuid.uuid4().hex[:8]}.html")
-                with open(temp_html, "w", encoding="utf-8") as f: f.write(html)
+            context = await self._browser.new_context(device_scale_factor=2, viewport={"width": 850, "height": 800})
+            page = await context.new_page()
+            
+            temp_html = os.path.join(os.path.dirname(os.path.abspath(os.path.join(self.res_path, name))), f"tmp_{uuid.uuid4().hex[:8]}.html")
+            with open(temp_html, "w", encoding="utf-8") as f: f.write(html)
+            
+            try:
+                await page.goto(f"file:///{temp_html.replace(chr(92), '/')}", wait_until="load", timeout=15000)
+                await page.wait_for_timeout(100)
+                el = await page.evaluate_handle("document.body.firstElementChild")
+                box = await el.bounding_box() if el else None
+                if box:
+                    await page.set_viewport_size({"width": int(box["width"]) + 2, "height": int(box["height"]) + 2})
+                    await page.screenshot(path=output_path, clip=box)
+                else:
+                    await page.screenshot(path=output_path, full_page=True)
+                if el: await el.dispose()
+            finally:
+                if os.path.exists(temp_html): os.remove(temp_html)
+                await page.close()
+                await context.close()
                 
-                try:
-                    await page.goto(f"file:///{temp_html.replace(chr(92), '/')}", wait_until="load", timeout=15000)
-                    await page.wait_for_timeout(100)
-                    el = await page.evaluate_handle("document.body.firstElementChild")
-                    box = await el.bounding_box() if el else None
-                    if box:
-                        await page.set_viewport_size({"width": int(box["width"]) + 2, "height": int(box["height"]) + 2})
-                        await page.screenshot(path=output_path, clip=box)
-                    else:
-                        await page.screenshot(path=output_path, full_page=True)
-                    if el: await el.dispose()
-                finally:
-                    if os.path.exists(temp_html): os.remove(temp_html)
-                await browser.close()
             return output_path
         except Exception as e:
             from astrbot.api import logger
             logger.error(f"[Endfield Render] Playwright error: {e}")
             return None
+            
+    async def close(self):
+        if self._browser:
+            await self._browser.close()
+        if self._playwright:
+            await self._playwright.stop()

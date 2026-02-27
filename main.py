@@ -57,6 +57,15 @@ class EndfieldPlugin(Star):
             if "." in rp.split("/")[-1]:
                 ext = "." + rp.split("/")[-1].split(".")[-1].split("?")[0]
                 if len(ext) > 5: ext = ".png" # Fix for weird query params
+                
+            # Basic SSRF prevention: Do not allow localhost/127.0.0.1 or obvious private IP requests
+            from urllib.parse import urlparse
+            parsed_url = urlparse(rp)
+            hostname = parsed_url.hostname or ""
+            if hostname.startswith("127.") or hostname == "localhost" or hostname.startswith("192.168.") or hostname.startswith("10.") or (hostname.startswith("172.") and len(hostname.split(".")) == 4 and 16 <= int(hostname.split(".")[1]) <= 31):
+                logger.warning(f"Blocked potential SSRF access to {rp}")
+                return rp
+                
             cache_file = os.path.join(cache_dir, f"{url_hash}{ext}")
             
             if os.path.exists(cache_file):
@@ -159,7 +168,7 @@ class EndfieldPlugin(Star):
             logger.warning(f"渲染菜单失败: {e}")
             
         # Fallback to plain text if rendering fails
-        help_text = "【终末地协议终端 v1.2.0】\n"
+        help_text = "【终末地协议终端 v1.3.0】\n"
         for group in render_data["helpGroup"]:
             if group.get("group"):
                 help_text += f"\n{group['group']}\n"
@@ -238,9 +247,14 @@ class EndfieldPlugin(Star):
             return
             
         target = bindings[index-1]
-        confirm = await self.client.delete_binding(target["binding_id"], user_id)
+        binding_id = target.get("binding_id")
+        if not binding_id:
+            yield event.plain_result("该绑定数据异常无 ID，无法删除。")
+            return
+            
+        confirm = await self.client.delete_binding(binding_id, user_id)
         
-        await self.user_mgr.delete_user_binding(user_id, target["binding_id"])
+        await self.user_mgr.delete_user_binding(user_id, binding_id)
         
         msg = f"已删除绑定：{target['nickname']}"
         if not confirm:
@@ -318,7 +332,8 @@ class EndfieldPlugin(Star):
             "is_active": True,
             "is_primary": True,
             "login_type": "auth",
-            "bind_time": int(time.time() * 1000) # Simple TS
+            "bind_time": int(time.time() * 1000), # Simple TS
+            "last_sync": int(time.time() * 1000)
         }
         
         existing = self.user_mgr.get_user_bindings(user_id)
@@ -361,24 +376,27 @@ class EndfieldPlugin(Star):
         # Polling
         max_attempts = 90
         login_data = None
-        for _ in range(max_attempts):
-            await asyncio.sleep(2)
-            status = await self.client.get_qr_status(token)
-            if not status: continue
-            
-            if status.get("status") == "done":
-                login_data = await self.client.confirm_qr_login(token, user_id)
-                if login_data and login_data.get("framework_token"):
-                    break
-            elif status.get("status") in ["expired", "failed"]:
-                yield event.plain_result("二维码已过期或登录失败。")
-                os.remove(tmp_path)
-                return
         
-        os.remove(tmp_path)
-        if not login_data:
-            yield event.plain_result("登录超时。")
-            return
+        try:
+            for _ in range(max_attempts):
+                await asyncio.sleep(2)
+                status = await self.client.get_qr_status(token)
+                if not status: continue
+                
+                if status.get("status") == "done":
+                    login_data = await self.client.confirm_qr_login(token, user_id)
+                    if login_data and login_data.get("framework_token"):
+                        break
+                elif status.get("status") in ["expired", "failed"]:
+                    yield event.plain_result("二维码已过期或登录失败。")
+                    return
+            
+            if not login_data:
+                yield event.plain_result("登录超时。")
+                return
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
             
         # Create binding
         auth_token = login_data["framework_token"]
@@ -397,7 +415,8 @@ class EndfieldPlugin(Star):
             "login_type": "qr",
             "is_active": True,
             "is_primary": True,
-            "bind_time": int(time.time() * 1000)
+            "bind_time": int(time.time() * 1000),
+            "last_sync": int(time.time() * 1000)
         }
         existing = self.user_mgr.get_user_bindings(user_id)
         existing.append(acc)
@@ -1311,7 +1330,7 @@ class EndfieldPlugin(Star):
              return
              
         group_id = event.get_group_id()
-        latest = await self.client.request("GET", "/api/announcements/latest")
+        latest = await self.client.get_announcement_latest()
         ts = latest.get("published_at_ts", 0) if latest else 0
         await self.announce_mgr.add_subscription(group_id, ts)
         yield event.plain_result("已成功订阅公告推送！")
@@ -1408,7 +1427,7 @@ class EndfieldPlugin(Star):
         if self._announcement_task_handle:
             self._announcement_task_handle.cancel()
         if self._http_client:
-            asyncio.create_task(self._http_client.aclose())
+            await self._http_client.aclose()
         if self.client:
-            asyncio.create_task(self.client.close())
+            await self.client.close()
         logger.info("Endfield plugin terminated.")

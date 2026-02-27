@@ -50,8 +50,17 @@ class EndfieldClient:
             else:
                 logger.warning(f"[Endfield API] {method} {path} -> code={data.get('code')}, msg={data.get('message', data.get('msg', ''))}")
                 return None
+        except httpx.HTTPStatusError as e:
+            logger.error(f"[Endfield API] {method} {path} -> HTTPError {e.response.status_code}")
+            return None
+        except httpx.RequestError as e:
+            logger.error(f"[Endfield API] {method} {path} -> Request Error {e}")
+            return None
+        except ValueError as e: # JSON decode error
+            logger.error(f"[Endfield API] {method} {path} -> JSON Decode Error {e}")
+            return None
         except Exception as e:
-            logger.error(f"[Endfield API] {method} {path} -> {e}")
+            logger.error(f"[Endfield API] {method} {path} -> Unknown Exception: {e}")
             return None
 
     # ─── Login ────────────────────────────────────────────────────────
@@ -125,7 +134,7 @@ class EndfieldClient:
                                  params={"user_identifier": user_id, "client_type": "bot"})
         return res is not None
 
-    async def set_primary_binding(self, binding_id: str, user_id: str) -> bool:
+    async def set_primary_binding_by_id(self, binding_id: str, user_id: str) -> bool:
         """POST /api/v1/bindings/:id/primary"""
         res = await self._post(f"/api/v1/bindings/{binding_id}/primary")
         return res is not None
