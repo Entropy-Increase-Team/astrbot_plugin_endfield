@@ -1,6 +1,8 @@
 import asyncio
 import os
 import time
+import base64
+import tempfile
 from astrbot.api import logger
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register, StarTools
@@ -12,7 +14,7 @@ from .core.user import UserManager, SimulateManager, AnnouncementManager, Maaend
 from .core.utils import get_message
 from .core.render import Renderer
 
-@register("astrbot_plugin_endfield", "bvzrays", "终末地协议终端插件", "v1.0.0", "https://github.com/bvzrays/astrbot_plugin_endfield")
+@register("astrbot_plugin_endfield", "bvzrays", "终末地协议终端插件", "v1.3.0", "https://github.com/bvzrays/astrbot_plugin_endfield")
 class EndfieldPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -32,26 +34,59 @@ class EndfieldPlugin(Star):
         res_path = os.path.join(os.path.dirname(__file__), "resources")
         self.renderer = Renderer(res_path, self)
 
-    def get_b64(self, rp):
-        import mimetypes, base64
+    async def get_b64(self, rp):
+        import mimetypes, base64, httpx, hashlib, asyncio
         if not rp:
             return ""
+            
+        if rp.startswith("//"):
+            rp = "https:" + rp
+            
+        cache_dir = os.path.join(self.renderer.res_path, "cache")
+        if not os.path.exists(cache_dir):
+            os.makedirs(cache_dir, exist_ok=True)
+            
         if rp.startswith("http://") or rp.startswith("https://"):
+            url_hash = hashlib.md5(rp.encode()).hexdigest()
+            # Try to guess extension from URL or use .png as default
+            ext = ".png"
+            if "." in rp.split("/")[-1]:
+                ext = "." + rp.split("/")[-1].split(".")[-1].split("?")[0]
+                if len(ext) > 5: ext = ".png" # Fix for weird query params
+            cache_file = os.path.join(cache_dir, f"{url_hash}{ext}")
+            
+            if os.path.exists(cache_file):
+                # Return file:/// URI for Playwright to load directly from disk (much faster)
+                return "file:///" + os.path.abspath(cache_file).replace("\\", "/")
+                    
             try:
-                resp = httpx.get(rp, timeout=10)
-                if resp.status_code == 200:
-                    m = resp.headers.get("Content-Type", "image/png")
-                    return f"data:{m};base64,{base64.b64encode(resp.content).decode()}"
+                # Asynchronous retry logic for unstable connections
+                async with httpx.AsyncClient(verify=False) as client:
+                    for attempt in range(3):
+                        try:
+                            resp = await client.get(rp, timeout=10)
+                            if resp.status_code == 200:
+                                with open(cache_file, "wb") as f:
+                                    f.write(resp.content)
+                                return "file:///" + os.path.abspath(cache_file).replace("\\", "/")
+                            break
+                        except Exception:
+                            if attempt == 2: raise
+                            await asyncio.sleep(0.5)
             except Exception as e:
                 logger.error(f"Failed to fetch external image {rp}: {e}")
             return rp
         
         fp = os.path.join(self.renderer.res_path, rp)
         if os.path.exists(fp):
-            m = mimetypes.guess_type(fp)[0] or "image/png"
-            with open(fp, "rb") as f:
-                return f"data:{m};base64,{base64.b64encode(f.read()).decode()}"
-        return ""
+            return "file:///" + os.path.abspath(fp).replace("\\", "/")
+        return rp
+
+    async def parallel_download_b64(self, urls):
+        """并行下载多个URL并返回本地路径或B64"""
+        if not urls: return []
+        tasks = [self.get_b64(url) for url in urls]
+        return await asyncio.gather(*tasks)
 
     async def initialize(self):
         # Announcement Task
@@ -60,33 +95,71 @@ class EndfieldPlugin(Star):
     @filter.command("zmd")
     async def zmd_help(self, event: AstrMessageEvent):
         '''显示终末地插件帮助菜单'''
-        help_text = (
-            "【终末地协议终端帮助】\n"
-            "指令触发符：/ (默认) 或 :\n\n"
-            "1. 账号绑定\n"
-            "   :授权登陆 - 网页授权登录\n"
-            "   :扫码绑定 - 扫码快捷登录\n"
-            "   :手机绑定 [手机号] - 验证码登录\n"
-            "   :绑定列表 - 查看已绑定账号\n"
-            "   :切换绑定 [序号] - 切换当前账号\n"
-            "   :删除绑定 [序号] - 删除绑定账号\n\n"
-            "2. 信息查询\n"
-            "   :便签 - 查询理智与日常活跃\n"
-            "   :理智 - 快捷查询理智状态\n"
-            "   :干员列表 - 查询干员列表\n"
-            "   :<干员名>面板 - 查询干员详细面板\n\n"
-            "3. 其他功能\n"
-            "   :公告 - 查看最新官方公告\n"
-            "   :wiki 干员 [名称] - 查询干员百科\n\n"
-            "致谢原作者：QingYingX, 浅巷墨黎 (Entropy-Increase-Team)"
-        )
+        render_data = {
+            "helpCfg": {
+                "title": "终末地协议终端",
+                "subTitle": "Endfield Protocol Terminal"
+            },
+            "helpGroup": [
+                {
+                    "type": "tips",
+                    "items": [
+                        {"title": "提示", "text": "指令触发符：/ (默认) 或 :"}
+                    ]
+                },
+                {
+                    "group": "账号绑定",
+                    "list": [
+                        {"title": ":授权登陆", "desc": "网页授权登录", "icon": True},
+                        {"title": ":扫码绑定", "desc": "扫码快捷登录", "icon": True},
+                        {"title": ":手机绑定 [手机号]", "desc": "验证码登录", "icon": True},
+                        {"title": ":绑定列表", "desc": "查看已绑定账号", "icon": True},
+                        {"title": ":切换绑定 [序号]", "desc": "切换当前账号", "icon": True},
+                        {"title": ":删除绑定 [序号]", "desc": "删除绑定账号", "icon": True}
+                    ]
+                },
+                {
+                    "group": "信息查询",
+                    "list": [
+                        {"title": ":便签", "desc": "查询理智与日常活跃", "icon": True},
+                        {"title": ":理智", "desc": "快捷查询理智状态", "icon": True},
+                        {"title": ":干员列表", "desc": "查询干员列表", "icon": True},
+                        {"title": ":<干员名>面板", "desc": "查询干员详细面板", "icon": True}
+                    ]
+                },
+                {
+                    "group": "其他功能",
+                    "list": [
+                        {"title": ":公告", "desc": "查看最新官方公告", "icon": True},
+                        {"title": ":wiki 干员 [名称]", "desc": "查询干员百科", "icon": True}
+                    ]
+                }
+            ],
+            "contentWidth": 800,
+            "colCount": 2,
+            "colWidth": 330,
+            "widthGap": 20,
+            "copyright": "Endfield Protocol Terminal | v1.2.0",
+            "pluResPath": "file:///" + os.path.abspath(self.renderer.res_path).replace("\\", "/") + "/"
+        }
+        
+        try:
+            img_url = await self.renderer.render_html("help/help.html", render_data)
+            if img_url:
+                yield event.image_result(img_url)
+                return
+        except Exception as e:
+            logger.warning(f"渲染菜单失败: {e}")
+            
+        # Fallback to plain text if rendering fails
+        help_text = "【终末地协议终端 v1.2.0】\n"
+        for group in render_data["helpGroup"]:
+            if group.get("group"):
+                help_text += f"\n{group['group']}\n"
+            if group.get("list"):
+                for item in group["list"]:
+                    help_text += f" {item['title']} - {item['desc']}\n"
         yield event.plain_result(help_text)
-
-    @filter.command("帮助")
-    async def help_alias(self, event: AstrMessageEvent):
-        '''显示帮助的别名'''
-        async for result in self.zmd_help(event):
-            yield result
 
     @filter.command("绑定列表")
     async def bind_list(self, event: AstrMessageEvent):
@@ -266,7 +339,7 @@ class EndfieldPlugin(Star):
         
         # In AstrBot, we can send a base64 image or a temp file.
         # We'll use a temp file for compatibility.
-        import tempfile
+        
         img_data = base64.b64decode(qr_b64.split(",")[-1])
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
             tmp.write(img_data)
@@ -394,7 +467,7 @@ class EndfieldPlugin(Star):
             await waiter(event)
         except TimeoutError:
             yield event.plain_result("验证超时。")
-    @filter.command("便签")
+    @filter.command("理智")
     async def stamina(self, event: AstrMessageEvent):
         '''查询理智状态'''
         user_id = event.get_sender_id()
@@ -416,8 +489,6 @@ class EndfieldPlugin(Star):
             
         note_data = await self.client.get_note(token, role_id, server_id)
         
-        # Structure data for the template (mimicking stamina.js logic)
-        # API returns: {stamina: {current, max, maxTs, recover}, dailyMission: {activation, maxActivation}, role: {name, level, roleId}}
         stamina_obj = stamina_data.get("stamina", {})
         daily_obj = stamina_data.get("dailyMission", {})
         role_obj = stamina_data.get("role", {})
@@ -429,7 +500,6 @@ class EndfieldPlugin(Star):
         a_current = int(daily_obj.get("activation", 0) or 0)
         a_max = int(daily_obj.get("maxActivation", 100) or 100)
         
-        # Calculate full time
         if s_current >= s_max and s_max > 0:
             full_time = "已满"
         elif s_maxTs > 0:
@@ -441,13 +511,14 @@ class EndfieldPlugin(Star):
         else:
             full_time = "未知"
         
-        # Prefer note data for user info if available
         user_name = binding.get('nickname')
         user_level = 0
+        user_avatar = binding.get("avatarUrl", "")
         if note_data:
             base = note_data.get("base", {})
             user_name = base.get("name") or role_obj.get("name") or user_name
             user_level = int(base.get("level", 0) or role_obj.get("level", 0) or 0)
+            user_avatar = base.get("avatarUrl") or user_avatar
         else:
             user_name = role_obj.get("name") or user_name
             user_level = int(role_obj.get("level", 0) or 0)
@@ -456,6 +527,7 @@ class EndfieldPlugin(Star):
             "userName": user_name,
             "userUid": role_id,
             "userLevel": user_level,
+            "userAvatar": await self.get_b64(user_avatar) if user_avatar else "",
             "current": s_current,
             "max": s_max,
             "staminaPercent": (s_current / max(s_max, 1)) * 100,
@@ -465,17 +537,15 @@ class EndfieldPlugin(Star):
             "activationPercent": (a_current / max(a_max, 1)) * 100,
         }
         
-        # Find operator image
         op_dir = os.path.join(self.renderer.res_path, "img", "operator")
         if os.path.exists(op_dir):
             ops = [f for f in os.listdir(op_dir) if f.endswith(('.png', '.jpg', '.webp'))]
             if ops:
                 import random
                 op_file = random.choice(ops)
-                # Read operator img directly into base64 as well to avoid path issues
-                acc_data["operatorImg"] = self.get_b64(os.path.join("img", "operator", op_file))
+                acc_data["operatorImg"] = await self.get_b64(os.path.join("img", "operator", op_file))
         
-        acc_data["staminaBgImg"] = self.get_b64("img/stbg.png")
+        acc_data["staminaBgImg"] = await self.get_b64("img/stbg.png")
 
         render_data = {
             "accounts": [acc_data],
@@ -489,8 +559,106 @@ class EndfieldPlugin(Star):
                 yield event.image_result(img_url)
                 return
         except Exception as e:
-            logger.warning(f"渲染便笾失败，使用文本回退: {e}")
+            logger.warning(f"渲染理智失败，使用文本回退: {e}")
         yield event.plain_result(f"【{acc_data['userName']}】\n理智：{acc_data['current']}/{acc_data['max']}\n活跃度：{acc_data['activation']}/{acc_data['maxActivation']}\n回满时间：{acc_data['fullTime']}")
+
+    @filter.command("便签")
+    async def note(self, event: AstrMessageEvent):
+        '''查询角色便签'''
+        user_id = event.get_sender_id()
+        binding = self.user_mgr.get_primary_binding(user_id)
+        if not binding:
+            yield event.plain_result("未绑定账号，请输入 :帮助 查看绑定方式。")
+            return
+
+        yield event.plain_result("正在获取实时便签...")
+        
+        token = binding.get("framework_token")
+        role_id = binding.get("role_id")
+        server_id = binding.get("server_id", 1)
+        
+        note_data = await self.client.get_note(token, role_id, server_id)
+        if not note_data or "base" not in note_data:
+            yield event.plain_result(get_message("common.get_role_failed", "获取账号失败。"))
+            return
+            
+        stamina_data = await self.client.get_stamina(token, role_id, server_id)
+        
+        base = note_data.get("base", {})
+        chars = note_data.get("chars", [])
+        server_name = base.get("serverName", "未知")
+        
+        stamina_obj = stamina_data.get("stamina", {}) if stamina_data else {}
+        daily_obj = stamina_data.get("dailyMission", {}) if stamina_data else {}
+        
+        s_current = stamina_obj.get("current", "—")
+        s_max = stamina_obj.get("max", "—")
+        a_current = daily_obj.get("activation", "—")
+        a_max = daily_obj.get("maxActivation", 100)
+        
+        create_time = base.get("createTime")
+        if create_time:
+            create_time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(int(create_time)))
+            awakening_date_str = time.strftime("%Y-%m-%d", time.localtime(int(create_time)))
+        else:
+            create_time_str = "未知"
+            awakening_date_str = ""
+            
+        last_login = base.get("lastLoginTime")
+        last_login_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(int(last_login))) if last_login else "未知"
+        
+        # Pre-download all character icons in parallel
+        icon_urls = []
+        for c in chars:
+            icon_urls.append(c.get("avatarSqUrl") or c.get("avatar_sq_url") or "")
+        icon_local_paths = await self.parallel_download_b64(icon_urls)
+            
+        chars_list = []
+        for i, c in enumerate(chars):
+            chars_list.append({
+                "name": c.get("name", "未知"),
+                "sqUrl": icon_local_paths[i]
+            })
+            
+        render_data = {
+            "title": "终末地便签",
+            "subtitle": f"{base.get('name', '未知')} · {server_name}",
+            "base": {
+                "name": base.get("name", "未知"),
+                "roleId": base.get("roleId", "未知"),
+                "level": base.get("level", 0),
+                "exp": base.get("exp", 0),
+                "worldLevel": base.get("worldLevel", 0),
+                "serverName": server_name,
+                "createTimeStr": create_time_str,
+                "lastLoginTimeStr": last_login_str,
+                "mainMissionDesc": base.get("mainMission", {}).get("description", "未知"),
+                "avatarUrl": await self.get_b64(base.get("avatarUrl", "")),
+                "awakeningDateStr": awakening_date_str
+            },
+            "stats": {
+                "charNum": base.get("charNum", 0),
+                "weaponNum": base.get("weaponNum", 0),
+                "docNum": base.get("docNum", 0),
+                "staminaCurrent": s_current,
+                "staminaMax": s_max,
+                "activation": a_current,
+                "maxActivation": a_max
+            },
+            "chars": chars_list,
+            "pluResPath": "file:///" + os.path.abspath(self.renderer.res_path).replace("\\", "/") + "/"
+        }
+        
+        try:
+            img_url = await self.renderer.render_html("note/note.html", render_data)
+            if img_url:
+                yield event.image_result(img_url)
+                return
+        except Exception as e:
+            logger.warning(f"渲染便签失败，使用文本回退: {e}")
+            
+        msg = f"角色名：{base.get('name', '未知')}\n理智：{s_current}/{s_max}\n活跃度：{a_current}/{a_max}"
+        yield event.plain_result(msg)
 
     @filter.command("签到")
     async def attendance(self, event: AstrMessageEvent):
@@ -555,8 +723,12 @@ class EndfieldPlugin(Star):
             "VANGUARD": "VAN", "SPECIALIST": "SPE"
         }
 
+        # Pre-download all operator illustrations in parallel
+        illustration_urls = [char_data.get("avatarRtUrl", "") for c in chars for char_data in [c.get("charData", c)]]
+        local_illustrations = await self.parallel_download_b64(illustration_urls)
+
         operators = []
-        for c in chars:
+        for i, c in enumerate(chars):
             char_data = c.get("charData", c)
             prof = char_data.get("profession", {}).get("value", "")
             prop = char_data.get("property", {}).get("value", "")
@@ -565,12 +737,12 @@ class EndfieldPlugin(Star):
                 "nameChars": list(char_data.get("name", "未知")),
                 "rarity": int(char_data.get("rarity", {}).get("value", 1)) if isinstance(char_data.get("rarity"), dict) else 1,
                 "level": c.get("level", 0),
-                "imageUrl": char_data.get("avatarRtUrl", ""),
+                "imageUrl": local_illustrations[i],
                 "profession": prof,
                 "property": prop,
-                "professionIcon": self.get_b64(f"meta/class/{prof}.jpg") if prof else "",
-                "propertyIcon": self.get_b64(f"meta/attrpanle/{prop}.jpg") if prop else "",
-                "phaseIcon": self.get_b64(f"meta/phases/phase-{c.get('evolvePhase', 0)}.png"),
+                "professionIcon": await self.get_b64(f"meta/class/{prof}.jpg") if prof else "",
+                "propertyIcon": await self.get_b64(f"meta/attrpanle/{prop}.jpg") if prop else "",
+                "phaseIcon": await self.get_b64(f"meta/phases/phase-{c.get('evolvePhase', 0)}.png"),
                 "potentialLevel": c.get('potentialLevel', 0),
                 "colorCode": color_codes.get(prop, "PHY")
             })
@@ -578,21 +750,27 @@ class EndfieldPlugin(Star):
         operators.sort(key=lambda x: (x["rarity"], x["level"]), reverse=True)
         
         # Calculate layout constraints
-        list_card_width = 175
+        list_card_width = 300
         list_column_count = 6
         list_gap_px = 12
         list_content_width = (list_card_width * list_column_count) + (list_gap_px * (list_column_count - 1))
-        list_page_width = list_content_width + 56 # 28px padding on each side
+        list_page_width = list_content_width + 56 # 28px padding on each side (matches top-bar)
         
-        list_bg_file = "opbg.png"
+        # Get background from config
+        import random
+        list_bg_cfg = self.config.get("operator_list_bg", "random")
+        if list_bg_cfg == "random":
+            list_bg_file = random.choice(["bg1.png", "bg2.png"])
+        else:
+            list_bg_file = list_bg_cfg
         
         render_data = {
             "totalCount": len(operators),
             "operators": operators,
             "userNickname": detail.get("base", {}).get("name", binding.get("nickname")),
             "userLevel": detail.get("base", {}).get("level", 0),
-            "userAvatar": self.get_b64(binding.get("avatarUrl", "")),
-            "listBgFile": self.get_b64(f"operator/img/{list_bg_file}"),
+            "userAvatar": await self.get_b64(detail.get("base", {}).get("avatarUrl", "")),
+            "listBgFile": list_bg_file,
             "pluResPath": "file:///" + os.path.abspath(self.renderer.res_path).replace("\\", "/") + "/",
             "copyright": "Endfield Plugin | AstrBot",
             "listPageWidth": list_page_width,
@@ -616,7 +794,7 @@ class EndfieldPlugin(Star):
         if len(operators) > 20: msg += "..."
         yield event.plain_result(msg)
 
-    @filter.regex(r"^(?:[:：]|[/#](?:zmd|终末地))(.+?)面板$")
+    @filter.regex(r"^\*?(?:终末地)?\s*(.+?)\s*(?:终末地)?面板$")
     async def operator_panel(self, event: AstrMessageEvent, char_name: str):
         '''查询干员详细面板'''
         user_id = event.get_sender_id()
@@ -806,6 +984,56 @@ class EndfieldPlugin(Star):
         now = datetime.datetime.now()
         analysisTime = now.strftime("%Y-%m-%d %H:%M")
         
+        charAvatarMap = {}
+        target_avatar = binding.get("avatarUrl", "")
+        try:
+            note_res = await self.client.get_note(token, binding.get("role_id"), binding.get("server_id", 1))
+            if note_res and "base" in note_res and note_res["base"].get("avatarUrl"):
+                target_avatar = note_res["base"]["avatarUrl"]
+            if note_res and "chars" in note_res:
+                for c in note_res.get("chars", []):
+                    name = str(c.get("name", "")).strip()
+                    url = c.get("avatarSqUrl", "") or c.get("avatar_sq_url", "")
+                    if name and url: charAvatarMap[name] = url
+        except Exception:
+            pass
+            
+        try:
+            pool_chars_data = await self.client.get_gacha_pool_chars()
+            if pool_chars_data and "pools" in pool_chars_data:
+                for p in pool_chars_data.get("pools", []):
+                    # Combine character and weapon lists to ensure all icons are captured
+                    item_lists = [
+                        p.get("star6_chars", []), p.get("star5_chars", []), p.get("star4_chars", []),
+                        p.get("star6_weapons", []), p.get("star5_weapons", []), p.get("star4_weapons", [])
+                    ]
+                    for lst in item_lists:
+                        for c in lst:
+                            name = str(c.get("name", "")).strip()
+                            cover = c.get("cover", "") or c.get("cover_url", "")
+                            if name and cover and name not in charAvatarMap:
+                                charAvatarMap[name] = cover
+        except Exception:
+            pass
+            
+        try:
+            # sub_type_id 1 is characters, 2 is weapons
+            tasks = [
+                self.client.get_wiki_items({"main_type_id": "1", "sub_type_id": "1", "page": 1, "page_size": 200}),
+                self.client.get_wiki_items({"main_type_id": "1", "sub_type_id": "2", "page": 1, "page_size": 200})
+            ]
+            wiki_responses = await asyncio.gather(*tasks)
+            for wiki_res in wiki_responses:
+                if wiki_res and "items" in wiki_res:
+                    for it in wiki_res.get("items", []):
+                        brief = it.get("brief") or it
+                        name = str(brief.get("name") or it.get("name") or "").strip()
+                        cover = brief.get("cover") or it.get("cover") or it.get("avatarSqUrl") or ""
+                        if name and cover and name not in charAvatarMap:
+                            charAvatarMap[name] = cover
+        except Exception:
+            pass
+
         render_data = {
             "title": "抽卡分析",
             "subtitle": "个人数据",
@@ -815,19 +1043,34 @@ class EndfieldPlugin(Star):
             "star4": stats.get("star4_count", 0),
             "userNickname": binding.get('nickname') or "未知",
             "userUid": binding.get("role_id", ""),
-            "userAvatar": self.get_b64(binding.get("avatarUrl", "")),
+            "userAvatar": await self.get_b64(target_avatar) if target_avatar else "",
             "analysisTime": analysisTime,
+            "syncHint": "若需刷新，发送 :抽卡分析同步",
+            "pluResPath": "file:///" + os.path.abspath(self.renderer.res_path).replace("\\", "/") + "/",
             "poolGroups": [],
             "copyright": "Endfield Plugin | AstrBot"
         }
         
+        # Build UP characters map from pool info
+        pool_up_map = {}
+        try:
+            pool_chars_data = await self.client.get_gacha_pool_chars()
+            if pool_chars_data and "pools" in pool_chars_data:
+                for p in pool_chars_data.get("pools", []):
+                    pname = str(p.get("pool_name", "")).strip()
+                    if pname:
+                        ups = [str(c.get("name", "")).strip() for c in p.get("star6_chars", []) if c.get("is_up")]
+                        pool_up_map[pname] = ups
+        except Exception:
+            pass
+
         pool_types = [
             {"key": "limited", "label": "限定角色"},
             {"key": "standard", "label": "常驻角色"}, 
             {"key": "weapon", "label": "武器池"},
             {"key": "beginner", "label": "新手池"}
         ]
-        
+            
         char_pools = []
         weapon_pools = []
         
@@ -840,41 +1083,92 @@ class EndfieldPlugin(Star):
             
             # Group by pool_name
             pools_dict = {}
+            free_pools_dict = {}
             for r in records:
-                pool_name = r.get("pool_name", "未知")
-                if pool_name not in pools_dict:
-                    pools_dict[pool_name] = []
-                pools_dict[pool_name].append(r)
+                pool_name = str(r.get("pool_name", "")).strip() or "未知"
+                if r.get("is_free"):
+                    if pool_name not in free_pools_dict:
+                        free_pools_dict[pool_name] = []
+                    free_pools_dict[pool_name].append(r)
+                else:
+                    if pool_name not in pools_dict:
+                        pools_dict[pool_name] = []
+                    pools_dict[pool_name].append(r)
                 
             for pool_name, pool_records in pools_dict.items():
                 # Sort asc to calculate pity
                 pool_records.sort(key=lambda x: str(x.get("seq_id", "")), reverse=False)
                 
+                free_records = free_pools_dict.get(pool_name, [])
+                free_total = len(free_records)
+                
                 total = len(pool_records)
                 star6_count = 0
                 images = []
+                # Pre-collect all 5/6-star icon URLs for this pool
+                all_needed_names = []
+                for r in pool_records:
+                    if r.get("rarity", 0) >= 5:
+                        all_needed_names.append(str(r.get("char_name") or r.get("item_name", "")).strip())
+                for r in free_records:
+                    if r.get("rarity", 0) >= 5:
+                        all_needed_names.append(str(r.get("char_name") or r.get("item_name", "")).strip())
+                
+                # Download icons in parallel
+                urls_to_download = [charAvatarMap.get(name, "") for name in all_needed_names]
+                local_icons = await self.parallel_download_b64(urls_to_download)
+                icon_map = dict(zip(all_needed_names, local_icons))
+
+                images = []
                 pity_since_last = 0
+                max_pity = 40 if key == "weapon" else 80
                 
                 for r in pool_records:
                     pity_since_last += 1
-                    if r.get("rarity") == 6:
+                    rarity = r.get("rarity")
+                    if rarity == 6:
                         star6_count += 1
+                        item_name = str(r.get("char_name") or r.get("item_name", "")).strip()
+                        up_list = pool_up_map.get(pool_name, [])
+                        is_up = item_name in up_list or "UP" in str(r.get("item_name", ""))
+                        
+                        bar_percent = min(100, int((pity_since_last / max_pity) * 100))
+                        
                         images.append({
-                            "name": r.get("char_name") or r.get("item_name"),
+                            "name": item_name,
                             "pullCount": pity_since_last,
-                            "tag": "UP" if "UP" in str(r.get("item_name", "")) else "6星",
-                            "badgeColor": "up" if "UP" in str(r.get("item_name", "")) else "normal",
-                            "barPercent": min(100, int((pity_since_last / 80) * 100)),
-                            "barColorLevel": "green" if pity_since_last < 50 else "yellow" if pity_since_last < 80 else "red"
+                            "tag": "UP" if is_up else "歪",
+                            "badgeColor": "up" if is_up else "normal",
+                            "barPercent": bar_percent,
+                            "barColorLevel": "green" if pity_since_last < (max_pity*0.6) else "yellow" if pity_since_last < (max_pity*0.9) else "red",
+                            "url": icon_map.get(item_name, ""),
+                            "fiveStars": [], # Empty list after removing markers
+                            "refLinePercent": None
                         })
                         pity_since_last = 0
                         
                 # Reverse images for display (newest first)
                 images.reverse()
                 
+                # Insert free pulls into images if they hit 6 star
+                for r in free_records:
+                    if r.get("rarity") == 6:
+                        pass_name = str(r.get("char_name") or r.get("item_name", "")).strip()
+                        images.append({
+                            "name": pass_name,
+                            "pullCount": "免费",
+                            "tag": "免费",
+                            "badgeColor": "free",
+                            "barPercent": 100,
+                            "barColorLevel": "green",
+                            "url": icon_map.get(pass_name, ""),
+                            "fiveStars": [],
+                            "refLinePercent": None
+                        })
+                
                 entry = {
                     "poolName": pool_name,
-                    "total": total,
+                    "total": total + free_total,
                     "star6": star6_count,
                     "metric1Label": "平均花费",
                     "metric1": f"{total // star6_count}抽" if star6_count > 0 else "-",
@@ -882,9 +1176,13 @@ class EndfieldPlugin(Star):
                     "metric2": f"{pity_since_last}抽",
                     "images": images,
                     "pitySinceLast6": pity_since_last,
-                    "pityBarPercent": min(100, int((pity_since_last / 80) * 100)),
-                    "pityBarColorLevel": "green" if pity_since_last < 50 else "yellow" if pity_since_last < 80 else "red",
-                    "freeTotal": 0
+                    "pityBarPercent": min(100, int((pity_since_last / max_pity) * 100)),
+                    "pityBarColorLevel": "green" if pity_since_last < (max_pity*0.6) else "yellow" if pity_since_last < (max_pity*0.9) else "red",
+                    "pityFiveStars": [],
+                    "freeTotal": free_total,
+                    "inheritedPity": 0,
+                    "inheritedPityPercent": 0,
+                    "freeBarPercent": min(100, int((free_total / 10) * 100)) if free_total > 0 else 0
                 }
                 
                 if key == "weapon":
@@ -892,9 +1190,9 @@ class EndfieldPlugin(Star):
                 else:
                     char_pools.append(entry)
                     
-        # Reverse to show newest banner first
-        char_pools.reverse()
-        weapon_pools.reverse()
+        # The API already returns records sorted newest first. 
+        # Our initial grouping reversed the elements manually when generating pity.
+        # So we leave the array ordered as-is to let the newest banner top.
         
         if char_pools:
             render_data["poolGroups"].append({"label": "角色池", "pools": char_pools})
@@ -914,10 +1212,11 @@ class EndfieldPlugin(Star):
     @filter.command("wiki")
     async def wiki_search(self, event: AstrMessageEvent, name: str):
         '''查询Wiki百科'''
-        yield event.plain_result(f"正在查询 Wiki: {name}...")
+        keyword = name.split()[-1] if name.split() else name
+        yield event.plain_result(f"正在查询 Wiki: {keyword}...")
         
         # Default to character search (sub_type_id=1)
-        res = await self.client.get_wiki_search(name)
+        res = await self.client.get_wiki_search(keyword)
         if not res or "items" not in res:
             yield event.plain_result("查询 Wiki 失败。")
             return
@@ -1041,11 +1340,7 @@ class EndfieldPlugin(Star):
                     # For now, just update TS to avoid repeated checks
                     self.announce_mgr.update_since_ts(s["group_id"], ts)
 
-    @filter.command("理智")
-    async def stamina_alias(self, event: AstrMessageEvent):
-        '''理智命令别名'''
-        async for result in self.stamina(event):
-            yield result
+
 
     @filter.command("maa设备")
     async def maa_device(self, event: AstrMessageEvent):
@@ -1053,11 +1348,11 @@ class EndfieldPlugin(Star):
         user_id = event.get_sender_id()
         device_ids = self.maa_mgr.get_user_devices(user_id)
         res = await self.client.get_maaend_devices()
-        if not res or "devices" not in res.get("data", {}):
+        if not res or "devices" not in res:
             yield event.plain_result("获取设备列表失败。")
             return
             
-        all_devices = res["data"]["devices"]
+        all_devices = res["devices"]
         user_devices = [d for d in all_devices if d.get("device_id") in device_ids]
         
         if not user_devices:
@@ -1073,11 +1368,11 @@ class EndfieldPlugin(Star):
     async def maa_bind(self, event: AstrMessageEvent):
         '''获取MaaEnd绑定码'''
         res = await self.client.create_maaend_bind_code()
-        if not res or "data" not in res:
+        if not res or "bind_code" not in res:
              yield event.plain_result("生成绑定码失败。")
              return
              
-        data = res["data"]
+        data = res
         msg = f"【MaaEnd 绑定码】\n绑定码：{data.get('bind_code')}\n请在 MaaEnd Client 中输入此动态码完成绑定。"
         yield event.plain_result(msg)
 

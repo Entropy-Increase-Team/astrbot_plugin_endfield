@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width={{pageWidth}}, initial-scale=1">
   <title>{{title}}</title>
   <link rel="stylesheet" href="{{_res_path}}gacha/simulate-result.css">
 </head>
+
 <body>
   <div class="simulate-result-container" style="min-width: {{pageWidth}}px; max-width: {{pageWidth}}px;">
     <div class="list-top-bar">
@@ -163,13 +165,15 @@
         {{each results}}
         <div class="ten-card ten-card-{{$value.rarity}} {{if $value.tagClass}}ten-card-{{$value.tagClass}}{{/if}}">
           {{if $value.cover}}
-          <img src="{{$value.cover}}" alt="{{$value.charName}}" class="ten-card-img" onerror="this.style.display='none'">
+          <img src="{{$value.cover}}" alt="{{$value.charName}}" class="ten-card-img"
+            onerror="this.style.display='none'">
           {{/if}}
           <div class="ten-card-top">
             <span class="ten-card-idx">{{if $index < 9}}0{{$index+1}}{{else}}{{$index+1}}{{/if}}</span>
           </div>
           <div class="ten-card-bottom">
-            <div class="ten-card-name">{{if $value.charName}}{{$value.charName}}{{else}}{{$value.starLabel}}{{/if}}</div>
+            <div class="ten-card-name">{{if $value.charName}}{{$value.charName}}{{else}}{{$value.starLabel}}{{/if}}
+            </div>
             <div class="ten-card-meta">
               <span class="ten-card-star">{{$value.starLabel}}</span>
               {{if $value.tag}}<span class="ten-card-tag ten-card-tag-{{$value.tagClass}}">{{$value.tag}}</span>{{/if}}
@@ -187,4 +191,5 @@
     {{/if}}
   </div>
 </body>
+
 </html>

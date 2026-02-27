@@ -6,9 +6,14 @@
   font-style: normal;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
-html, body {
+html,
+body {
   width: 580px;
   overflow-x: hidden;
   background: #f0f1f3;
@@ -127,12 +132,32 @@ html, body {
   margin-top: 2px;
 }
 
-.stat-6 { border-color: #fecaca; background: #fef2f2; }
-.stat-6 .stat-num { color: #dc2626; }
-.stat-5 { border-color: #fde68a; background: #fffbeb; }
-.stat-5 .stat-num { color: #d97706; }
-.stat-4 { border-color: #ddd6fe; background: #f5f3ff; }
-.stat-4 .stat-num { color: #7c3aed; }
+.stat-6 {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.stat-6 .stat-num {
+  color: #dc2626;
+}
+
+.stat-5 {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.stat-5 .stat-num {
+  color: #d97706;
+}
+
+.stat-4 {
+  border-color: #ddd6fe;
+  background: #f5f3ff;
+}
+
+.stat-4 .stat-num {
+  color: #7c3aed;
+}
 
 /* ========== 时间 + 提示 ========== */
 .time-bar {
@@ -333,10 +358,21 @@ html, body {
 }
 
 /* 进度条颜色 */
-.bar-level-green { background: #22c55e; }
-.bar-level-yellow { background: #eab308; }
-.bar-level-red { background: #ef4444; }
-.bar-level-free { background: #f59e0b; }
+.bar-level-green {
+  background: #22c55e;
+}
+
+.bar-level-yellow {
+  background: #eab308;
+}
+
+.bar-level-red {
+  background: #ef4444;
+}
+
+.bar-level-free {
+  background: #f59e0b;
+}
 
 /* 继承垫抽蓝色覆盖层（位于 bar-inner 内部） */
 .bar-inherit-overlay {
@@ -365,11 +401,28 @@ html, body {
   line-height: 1;
 }
 
-.star6-tag-wai { color: #fff; background: #64748b; }
-.star6-tag-baodi { color: #fff; background: #0284c7; }
-.star6-tag-up { color: #fff; background: #b45309; }
-.star6-tag-normal { background: transparent; }
-.star6-tag-empty { background: transparent; }
+.star6-tag-wai {
+  color: #fff;
+  background: #64748b;
+}
+
+.star6-tag-baodi {
+  color: #fff;
+  background: #0284c7;
+}
+
+.star6-tag-up {
+  color: #fff;
+  background: #b45309;
+}
+
+.star6-tag-normal {
+  background: transparent;
+}
+
+.star6-tag-empty {
+  background: transparent;
+}
 
 .pity-row {
   margin-top: 2px;

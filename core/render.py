@@ -134,14 +134,19 @@ class Renderer:
         adapted = re.sub(r'url\(\s*[\'"]?\{\{(?:_res_path|pluResPath)\}\}([^)"]+?)[\'"]?\s*\)', inline_style_bg, adapted)
         
         # Clean up stray jinja formatting and set correct absolute file paths
-        data["_res_path"] = ""
-        data["pluResPath"] = ""
+        data["_res_path"] = "X"
+        data["pluResPath"] = "X"
         
         # Render the HTML locally
         try:
             template = self.jinja_env.from_string(adapted)
             html_content = template.render(**data)
         except Exception as e:
+            from astrbot.api import logger
+            logger.error(f"Template parsing failed: {e}")
+            logger.error(f"Adapted template:\n{adapted}")
+            with open("error3.log", "w", encoding="utf-8") as f:
+                f.write(str(e))
             return None
             
         # Use local Playwright rendering (like astrbot_plugin_html_render does)
@@ -179,17 +184,46 @@ class Renderer:
                     viewport={"width": 850, "height": 800}
                 )
                 page = await context.new_page()
-                await page.set_content(html_content, wait_until="networkidle")
                 
-                # Expand viewport to full height
-                content_h = await page.evaluate("document.body.scrollHeight")
-                full_height = max(content_h, 200)
-                await page.set_viewport_size({"width": 850, "height": full_height})
+                temp_html_filename = f"render_{uuid.uuid4().hex[:8]}.html"
+                template_dir = os.path.dirname(os.path.abspath(os.path.join(self.res_path, template_name)))
+                temp_html_path = os.path.join(template_dir, temp_html_filename)
                 
-                # Wait for next animation frame
-                await page.evaluate("() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))")
-                
-                await page.screenshot(path=output_path, full_page=True)
+                with open(temp_html_path, "w", encoding="utf-8") as f:
+                    f.write(html_content)
+                    
+                try:
+                    try:
+                        await page.goto(f"file:///{temp_html_path.replace(chr(92), '/')}", wait_until="load", timeout=30000)
+                    except Exception as e:
+                        try:
+                            from astrbot.api import logger
+                            logger.warning(f"Playwright navigation non-fatal timeout: {e}")
+                        except:
+                            pass
+                            
+                    await page.wait_for_timeout(100)
+                    
+                    # Get exact bounding box of the first element to crop out white space
+                    el = await page.evaluate_handle("document.body.firstElementChild")
+                    box = await el.bounding_box() if el else None
+                    if box:
+                        await page.set_viewport_size({"width": int(box["width"]) + 2, "height": int(box["height"]) + 2})
+                        await page.screenshot(path=output_path, clip=box)
+                    else:
+                        content_h = await page.evaluate("document.body.scrollHeight")
+                        content_w = await page.evaluate("document.body.scrollWidth")
+                        await page.set_viewport_size({"width": content_w, "height": max(content_h, 200)})
+                        await page.screenshot(path=output_path, full_page=True)
+                        
+                    if el: await el.dispose()
+                finally:
+                    if os.path.exists(temp_html_path):
+                        try:
+                            os.remove(temp_html_path)
+                        except Exception:
+                            pass
+                            
                 await browser.close()
                 
             return output_path
@@ -198,4 +232,8 @@ class Renderer:
             # Fallback if playwright is unexpectedly missing
             return await self.plugin.html_render(adapted, data, options=options)
         except Exception as e:
+            from astrbot.api import logger
+            logger.error(f"Playwright rendering failed: {e}")
+            with open(os.path.join(cache_dir, "error2.log"), "w", encoding="utf-8") as f:
+                f.write(str(e))
             return None

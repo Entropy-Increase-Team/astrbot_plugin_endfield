@@ -12,7 +12,7 @@ class EndfieldClient:
     def __init__(self, api_key: str = "", base_url: str = BASE_URL):
         self.api_key = api_key
         self.base_url = base_url
-        self.client = httpx.AsyncClient(timeout=25.0)
+        self.client = httpx.AsyncClient(timeout=25.0, verify=False)
 
     async def close(self):
         await self.client.aclose()
@@ -253,8 +253,8 @@ class EndfieldClient:
         return await self._get(f"/api/wiki/items/{item_id}")
 
     async def get_wiki_activities(self) -> Optional[Dict]:
-        """GET /api/wiki/activities"""
-        return await self._get("/api/wiki/activities")
+        """GET /api/bili-wiki/activities"""
+        return await self._get("/api/bili-wiki/activities")
 
     # ─── Announcements (api_key only) ─────────────────────────────────
     async def get_announcements(self, page: int = 1, page_size: int = 20) -> Optional[Dict]:

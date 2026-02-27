@@ -6,16 +6,16 @@
     <meta name="viewport" content="width={{listPageWidth}}, initial-scale=1">
     <title>干员列表 - 终末地</title>
     <link rel="stylesheet" href="{{pluResPath}}operator/list.css">
-    {{if listBgFile}}
+    {% if listBgFile %}
     <style>
         .list-page-body {
-            background-image: url({{listBgFile}});
+            background-image: url({{pluResPath}}operator/img/{{listBgFile}});
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
         }
     </style>
-    {{/if}}
+    {% endif %}
 </head>
 
 <body class="list-page-body" data-list-page-width="{{listPageWidth}}" data-list-content-width="{{listContentWidth}}"
@@ -40,17 +40,17 @@
         </header>
 
         <div class="operators-grid" style="--list-card-scale: {{listCardScale}};">
-            {{each operators operator}}
+            {% for operator in operators %}
             <div class="operator-card" data-rarity="{{operator.rarity}}"
-                data-friend-showcase="{{if operator.isFriendShowcase}}1{{else}}0{{/if}}"
-                style="--list-card-scale: {{listCardScale}}; width: {{listCardWidthPx}}px; height: calc({{listCardWidthPx}}px * 1.5);">
+                data-friend-showcase="{% if operator.isFriendShowcase %}1{% else %}0{% endif %}"
+                style="--list-card-scale: {{listCardScale}}; width: {{listCardWidthPx}}px;">
                 <div class="showcase-inner showcase-container" data-color-code="{{operator.colorCode}}">
-                    {{if operator.rarity >= 4}}
+                    {% if operator.rarity >= 4 %}
                     <div class="card-rarity-badge card-rarity-{{operator.rarity}}">
                         <img class="card-rarity-star-img" src="{{pluResPath}}meta/potential/star.png" alt="">
                         <span class="card-rarity-num">{{operator.rarity}}</span>
                     </div>
-                    {{/if}}
+                    {% endif %}
                     <div class="background-character">
                         <img src="{{operator.imageUrl}}" alt="character">
                     </div>
@@ -63,33 +63,33 @@
                         </svg>
                     </div>
                     <div class="card-icons">
-                        {{if operator.professionIcon}}
+                        {% if operator.professionIcon %}
                         <div class="decoration-image">
                             <img src="{{operator.professionIcon}}" alt="{{operator.profession}}">
                         </div>
-                        {{/if}}
-                        {{if operator.propertyIcon}}
+                        {% endif %}
+                        {% if operator.propertyIcon %}
                         <div class="property-icon">
                             <img src="{{operator.propertyIcon}}" alt="{{operator.property}}">
                         </div>
-                        {{/if}}
+                        {% endif %}
                     </div>
                     <div class="vertical-title-container">
-                        {{each operator.nameChars ch}}
+                        {% for ch in operator.nameChars %}
                         <span class="vertical-title-char">{{ch}}</span>
-                        {{/each}}
+                        {% endfor %}
                     </div>
                     <div class="card-potential-wrap">
                         <span class="card-potential-text">潜{{operator.potentialLevel}}</span>
                     </div>
-                    {{if operator.phaseIcon}}
+                    {% if operator.phaseIcon %}
                     <div class="card-phase-potential">
                         <img src="{{operator.phaseIcon}}" alt="精英{{operator.evolvePhase}}" class="card-phase-icon">
                     </div>
-                    {{/if}}
+                    {% endif %}
                 </div>
             </div>
-            {{/each}}
+            {% endfor %}
         </div>
     </div>
     <script>
