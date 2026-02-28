@@ -88,7 +88,7 @@ def build_detail_render_data(item: dict) -> dict:
         "pageWidth": 720
     }
 
-@register("astrbot_plugin_endfield", "bvzrays & 熵增项目组", "终末地协议终端", "v1.4.0", "https://github.com/bvzrays/astrbot_plugin_endfield")
+@register("astrbot_plugin_endfield", "bvzrays & 熵增项目组", "终末地协议终端", "v1.5.0", "https://github.com/Entropy-Increase-Team/astrbot_plugin_endfield")
 class EndfieldPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -1512,7 +1512,159 @@ class EndfieldPlugin(Star):
                     except Exception as e:
                         logger.error(f"Failed to push announcement to {s['group_id']}: {e}")
                     await self.announce_mgr.update_since_ts(s["group_id"], ts)
+    @filter.command("帝江号建设", alias=["帝江号"])
+    async def spaceship_cmd(self, event: AstrMessageEvent):
+        '''查询帝江号建设信息'''
+        user_id = event.get_sender_id()
+        bind = await self.user_mgr.get_primary_binding(user_id)
+        if not bind:
+            yield event.plain_result("您尚未绑定森空岛账号，请先使用 /授权登录 绑定。")
+            return
+            
+        res = await self.client.get_spaceship(bind["framework_token"], bind["role_id"], int(bind.get("server_id", 1)))
+        note = await self.client.get_note(bind["framework_token"], bind["role_id"], int(bind.get("server_id", 1)))
+        
+        char_avatar_map = {}
+        user_avatar = ""
+        if note:
+            user_avatar = note.get("base", {}).get("avatarUrl", "")
+            for c in note.get("chars", []):
+                char_avatar_map[c.get("id")] = c.get("avatarSqUrl")
 
+        if not res:
+            yield event.plain_result("获取帝江号建设信息失败。")
+            return
+            
+        # Data transformation for spaceship.html
+        render_data = {
+            "title": "帝江号建设汇报",
+            "userNickname": bind.get("nickname", "未知"),
+            "userLevel": note.get("base", {}).get("level", bind.get("level", 0)) if note else bind.get("level", 0),
+            "userUid": bind.get("role_id", "0"),
+            "userAvatar": user_avatar or res.get("role", {}).get("avatarUrl", ""),
+            "roomCount": len(res.get("rooms", [])),
+            "rooms": [],
+            "pluResPath": "file:///" + os.path.abspath(self.renderer.res_path).replace("\\", "/") + "/"
+        }
+        
+        # Build name-to-avatar mapping as fallback
+        name_to_avatar = {c.get("name"): c.get("avatarSqUrl") for c in note.get("chars", [])} if note else {}
+        
+        import random
+        for room in res.get("rooms", []):
+            room_data = {
+                "roomName": room.get("roomName", "未知房间"),
+                "level": room.get("level", 1),
+                "bgIndex": random.randint(1, 3), # 模板中用到 img/帝江号{{room.bgIndex}}.png
+                "chars": []
+            }
+            for c in room.get("chars", []):
+                char_id = c.get('charId')
+                room_data["chars"].append({
+                    "name": c.get("name", "未知"),
+                    "avatar": char_avatar_map.get(char_id) or name_to_avatar.get(c.get("name"), ""),
+                    "physicalStrength": round(c.get("physicalStrength", 0) / 100, 1),
+                    "moodDisplay": f"{c.get('moodPercent', 0)}/100",
+                    "favorability": int(c.get("favorability", 0)),
+                    "trustLevelName": c.get("trustLevelName", ""),
+                    "trustPercent": c.get("trustPercent", 0),
+                    "trustDisplay": c.get("trustDisplay", "")
+                })
+            render_data["rooms"].append(room_data)
+            
+        render_data["copyright"] = "astrbot"
+        
+        url = await self.renderer.render_html("area/spaceship.html", render_data)
+        if url:
+            yield event.image_result(url)
+        else:
+            yield event.plain_result("渲染帝江号建设图片失败。")
+
+    @filter.command("地区建设", alias=["建设"])
+    async def area_cmd(self, event: AstrMessageEvent):
+        '''查询地区建设信息'''
+        user_id = event.get_sender_id()
+        bind = await self.user_mgr.get_primary_binding(user_id)
+        if not bind:
+            yield event.plain_result("您尚未绑定森空岛账号，请先使用 /授权登录 绑定。")
+            return
+            
+        res = await self.client.get_domain(bind["framework_token"], bind["role_id"], int(bind.get("server_id", 1)))
+        note = await self.client.get_note(bind["framework_token"], bind["role_id"], int(bind.get("server_id", 1)))
+        
+        char_avatar_map = {}
+        user_avatar = ""
+        if note:
+            user_avatar = note.get("base", {}).get("avatarUrl", "")
+            for c in note.get("chars", []):
+                char_avatar_map[c.get("id")] = c.get("avatarSqUrl")
+
+        if not res:
+            yield event.plain_result("获取地区建设信息失败。")
+            return
+            
+        # Data transformation for area.html
+        render_data = {
+            "title": "地区建设进度",
+            "userNickname": bind.get("nickname", "未知"),
+            "userLevel": note.get("base", {}).get("level", bind.get("level", 0)) if note else bind.get("level", 0),
+            "userUid": bind.get("role_id", "0"),
+            "userAvatar": user_avatar, 
+            "zoneCount": len(res.get("domain", [])),
+            "zones": [],
+            "pluResPath": "file:///" + os.path.abspath(self.renderer.res_path).replace("\\", "/") + "/"
+        }
+        
+        # Build fallback maps from note (often more reliable for names/avatars)
+        note_chars = note.get("chars", []) if note else []
+        note_name_map = {c.get("id"): c.get("name") for c in note_chars}
+        note_avatar_map = {c.get("id"): c.get("avatarSqUrl") for c in note_chars}
+        
+        # Merge with domain API's own map (if provided)
+        # Using a unified map ensures we can resolve both short IDs (char_001) and long hashes
+        char_name_map = {**note_name_map, **res.get("charNameMap", {})}
+        char_avatar_map = note_avatar_map # note is the primary source for avatars
+        
+        # Build a name-to-avatar map as a last resort fallback
+        name_to_avatar = {c.get("name"): c.get("avatarSqUrl") for c in note_chars}
+        
+        for domain in res.get("domain", []):
+            zone_data = {
+                "zoneName": domain.get("name", "未知地区"),
+                "level": domain.get("level", 1),
+                "totalChest": sum(c.get("trchestCount", 0) for c in domain.get("collections", [])),
+                "totalPuzzle": sum(c.get("puzzleCount", 0) for c in domain.get("collections", [])),
+                "totalBlackbox": sum(c.get("blackboxCount", 0) for c in domain.get("collections", [])),
+                "settlements": []
+            }
+            for s in domain.get("settlements", []):
+                # Try multiple possible field names for flexibility
+                officer_ids = s.get("officerCharIds") or s.get("officerCharId") or s.get("officers") or ""
+                
+                if isinstance(officer_ids, list) and officer_ids:
+                    officer_id = str(officer_ids[0])
+                else:
+                    officer_id = str(officer_ids) if officer_ids else ""
+                
+                # Resolve name and avatar with fallbacks
+                officer_name = char_name_map.get(officer_id, "")
+                officer_avatar = char_avatar_map.get(officer_id) or name_to_avatar.get(officer_name, "")
+                    
+                zone_data["settlements"].append({
+                    "name": s.get("name", "未知聚落"),
+                    "level": s.get("level", 1),
+                    "officerName": officer_name,
+                    "officerAvatar": officer_avatar
+                })
+            render_data["zones"].append(zone_data)
+            
+        render_data["copyright"] = "astrbot"
+        
+        url = await self.renderer.render_html("area/area.html", render_data)
+        if url:
+            yield event.image_result(url)
+        else:
+            yield event.plain_result("渲染地区建设图片失败。")
 
 
     async def terminate(self):
