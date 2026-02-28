@@ -1,34 +1,14 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width={{pageWidth}}, initial-scale=1">
   <title>{{title}} - 终末地公告</title>
   <link rel="stylesheet" href="{{_res_path}}announcement/detail.css">
   <style>
-    html,
-    body {
-      width: {
-          {
-          pageWidth
-        }
-      }
-
-      px;
-
-      min-width: {
-          {
-          pageWidth
-        }
-      }
-
-      px;
-      box-sizing: border-box;
-    }
+    html, body { width: {{pageWidth}}px; min-width: {{pageWidth}}px; box-sizing: border-box; }
   </style>
 </head>
-
 <body>
   <div class="announcement-detail-container">
     <!-- 顶部栏：标题 + 时间（参考米游社单条公告版式） -->
@@ -53,11 +33,10 @@
       <div class="detail-content">{{@captionHtml}}</div>
     </div>
 
-    <!-- 页脚（与 help 一致） -->
+    <!-- 页脚（与 help 一致：{{@copyright || sys?.copyright}}） -->
     <footer class="footer">
-      <div class="copyright">{{copyright}}</div>
+      <div class="copyright">{{@copyright || sys?.copyright}}</div>
     </footer>
   </div>
 </body>
-
 </html>

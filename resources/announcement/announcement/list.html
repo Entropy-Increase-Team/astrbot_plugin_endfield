@@ -1,42 +1,20 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width={{pageWidth}}, initial-scale=1">
   <title>{{listHeader}} - 终末地</title>
   <link rel="stylesheet" href="{{_res_path}}announcement/list.css">
   <style>
-    html,
-    body {
-      width: {
-          {
-          pageWidth
-        }
-      }
-
-      px;
-
-      min-width: {
-          {
-          pageWidth
-        }
-      }
-
-      px;
-      box-sizing: border-box;
-    }
+    html, body { width: {{pageWidth}}px; min-width: {{pageWidth}}px; box-sizing: border-box; }
   </style>
 </head>
-
 <body>
   <div class="announcement-list-container">
-    <!-- 头部：标题 -->
+    <!-- 头部：标题（参考米游社·原神公告列表） -->
     <div class="list-top-bar">
       <div class="list-header-middle">
-        <h1 class="list-title">{{listHeader}} <span class="list-helper-text"
-            style="font-size: 0.6em; color: #6b7280; font-weight: normal; margin-left: 8px;">输入 /公告 &lt;序号&gt;
-            即可查看具体公告内容</span></h1>
+        <h1 class="list-title">{{listHeader}}</h1>
         <p class="list-count">{{listSubtitle}}</p>
       </div>
     </div>
@@ -61,9 +39,8 @@
 
     <!-- 页脚（与 help 一致：第一行说明 + 第二行 {{@copyright || sys?.copyright}}） -->
     <footer class="footer">
-      <div class="copyright">{{footerLine1}}</div>
+      <div class="copyright">{{footerLine1}}<br/>{{@copyright || sys?.copyright}}</div>
     </footer>
   </div>
 </body>
-
 </html>

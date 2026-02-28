@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{title}}</title>
   <link rel="stylesheet" href="{{_res_path}}enduid/bind-list.css">
 </head>
+
 <body>
   <div class="bind-list-container">
     <!-- 顶部栏 -->
@@ -27,9 +29,10 @@
     <div class="bind-card bind-card-empty">
       <div class="bind-card-left">
         <div class="bind-avatar-fallback bind-avatar-empty">
-          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-            <circle cx="12" cy="7" r="4"/>
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
           </svg>
         </div>
       </div>
@@ -47,7 +50,8 @@
     <div class="bind-card{{if item.isPrimary}} bind-card-active{{/if}}">
       <div class="bind-card-left">
         {{if item.avatarUrl}}
-        <img class="bind-avatar" src="{{item.avatarUrl}}" alt="{{item.nickname}}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <img class="bind-avatar" src="{{item.avatarUrl}}" alt="{{item.nickname}}"
+          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
         <div class="bind-avatar-fallback" style="display:none">{{item.index}}</div>
         {{else}}
         <div class="bind-avatar-fallback">{{item.index}}</div>
@@ -82,8 +86,8 @@
     <div class="tips-card">
       <div class="tips-title">绑定 / 管理</div>
       <div class="tips-row"><span class="tips-cmd">:授权登陆</span><span class="tips-desc">官网绑定后授权到机器人</span></div>
-      <div class="tips-row"><span class="tips-cmd">:扫码登陆</span><span class="tips-desc">森空岛 App 扫码登陆</span></div>
-      <div class="tips-row"><span class="tips-cmd">:手机登陆</span><span class="tips-desc">验证码登陆（仅私聊）</span></div>
+      <div class="tips-row"><span class="tips-cmd">:扫码绑定</span><span class="tips-desc">森空岛 App 扫码登陆</span></div>
+      <div class="tips-row"><span class="tips-cmd">:手机绑定</span><span class="tips-desc">验证码登陆（仅私聊）</span></div>
       <div class="tips-row"><span class="tips-cmd">:删除绑定 [序号]</span><span class="tips-desc">删除对应的绑定账号</span></div>
       <div class="tips-row"><span class="tips-cmd">:切换绑定 [序号]</span><span class="tips-desc">切换当前使用的账号</span></div>
     </div>
@@ -94,4 +98,5 @@
     </footer>
   </div>
 </body>
+
 </html>

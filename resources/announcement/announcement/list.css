@@ -1,4 +1,10 @@
 /* 公告列表 - 参考米游社·原神公告列表版式：序号 + 标题 + 时间，下方缩略图 */
+@font-face {
+  font-family: 'HarmonyOS Sans SC';
+  src: url('../font/HarmonyOS_SansSC_Bold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+}
 
 * {
   margin: 0;
@@ -6,11 +12,9 @@
   box-sizing: border-box;
 }
 
-html,
-body {
+html, body {
   overflow-x: hidden;
-  background: url("{{_res_path}}img/吊车.jpg") no-repeat center center fixed;
-  background-size: cover;
+  background: #f8f9fa;
   font-family: 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Microsoft YaHei', sans-serif;
   color: #1f2937;
 }
@@ -29,12 +33,11 @@ body {
   width: 100%;
   margin-bottom: 20px;
   padding: 16px 20px;
-  background: url("{{_res_path}}img/短尺背景.png") no-repeat center center;
-  background-size: cover;
+  background: linear-gradient(135deg, #f0f4f8 0%, #e8eef4 100%);
   border-radius: 12px;
   position: relative;
   z-index: 2;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0,0,0,0.06);
 }
 
 .list-top-bar .list-header-middle {
@@ -69,7 +72,7 @@ body {
   background: #fff;
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
   border: 1px solid #e5e7eb;
 }
 
