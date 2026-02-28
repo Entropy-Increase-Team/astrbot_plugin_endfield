@@ -63,6 +63,7 @@
 ## 功能截图
 
 | `便签`| 
+
 <img width="1700" height="1338" alt="a73ce8015048c7d0c7b6d67755120711" src="https://github.com/user-attachments/assets/d9c07469-f00d-42c2-820a-f46402adf714" />
 
 | `理智`| 
@@ -81,6 +82,18 @@
 | `抽卡记录`| 
 
 <img width="1440" height="1134" alt="87eb6ffe8ce92a37525f574c5fedcd87" src="https://github.com/user-attachments/assets/aacab909-6a04-467a-aeaf-a525558e1ddb" />
+
+| `帝江号建设`| 
+
+<img width="1700" height="2428" alt="59023a22dfab139c32efd539d20b99db" src="https://github.com/user-attachments/assets/929384b8-b51a-442f-ac7b-df4002a7aacd" />
+
+| `地区建设`| 
+
+<img width="1700" height="1114" alt="b09d853eeaa457a6732dfdbda65dece4" src="https://github.com/user-attachments/assets/199523e1-3356-4e8f-a3fc-c9b31050e815" />
+
+| `公告`| 
+
+<img width="1206" height="1141" alt="image" src="https://github.com/user-attachments/assets/f0fb98df-f66b-4cc5-ab7e-1acb83a32e32" />
 
 ---
 
@@ -140,7 +153,6 @@
 - 优化心情展示
 - 增加`短尺背景.png`
 
-
 ## 1.4.0 (2026-02-28)
 - 新增官方公告列表渲染功能 (`/公告`)
 - 新增官方单条公告详情提取及渲染功能 (`/公告 <序号>`, `/公告最新`)
@@ -175,6 +187,7 @@
 
 > [!TIP]
 > astrbot移植作者bvzrays插件反馈，加入 [870543663](https://qm.qq.com/q/kPxQZy5gg8) 。
+
 
 
 
