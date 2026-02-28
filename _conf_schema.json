@@ -25,5 +25,10 @@
     "description": "图片渲染超时时间(ms)",
     "type": "int",
     "default": 30000
+  },
+  "announcement_poll_interval": {
+    "description": "公告订阅推送轮询间隔（分钟）",
+    "type": "int",
+    "default": 10
   }
 }

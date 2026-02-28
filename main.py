@@ -14,7 +14,81 @@ from .core.user import UserManager, SimulateManager, AnnouncementManager, Maaend
 from .core.utils import get_message
 from .core.render import Renderer
 
-@register("astrbot_plugin_endfield", "bvzrays & 熵增项目组", "终末地协议终端", "v1.3.0", "https://github.com/bvzrays/astrbot_plugin_endfield")
+def get_cover_url(item: dict) -> str:
+    if not item: return ""
+    imgs = item.get("images", [])
+    if not imgs: return ""
+    first = imgs[0]
+    if isinstance(first, str): return first
+    if isinstance(first, dict):
+        if first.get("url"): return first["url"]
+        dis = first.get("display_infos") or first.get("displayInfos")
+        if dis and isinstance(dis, list) and len(dis) > 0:
+            return dis[0].get("url", "")
+    return ""
+
+def format_publish_time(ts) -> str:
+    if not ts: return ""
+    try:
+        import datetime
+        d = datetime.datetime.fromtimestamp(int(ts))
+        return d.strftime("%m/%d %H:%M")
+    except Exception:
+        return ""
+
+def get_content_text(data: dict) -> str:
+    if not data: return ""
+    texts = data.get("texts")
+    if isinstance(texts, list) and texts:
+        return "\n".join([str(t.get("content", "")) for t in texts if isinstance(t, dict) and t.get("content")])
+    
+    content = data.get("content")
+    if isinstance(content, dict):
+        blocks = content.get("blocks")
+        if isinstance(blocks, list):
+            res = []
+            for b in blocks:
+                if isinstance(b, dict) and b.get("kind") == "text" and "text" in b:
+                    txt_prop = b["text"]
+                    if isinstance(txt_prop, str): res.append(txt_prop)
+                    elif isinstance(txt_prop, dict) and txt_prop.get("text"): res.append(txt_prop["text"])
+            return "\n".join(res)
+    return ""
+
+def content_to_detail_html(text: str) -> str:
+    if not text: return ""
+    text = str(text)
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+def build_caption_content(item: dict) -> str:
+    if not item: return ""
+    texts = item.get("texts")
+    if not isinstance(texts, list) or not texts: return ""
+    parts = []
+    for text in texts:
+        if isinstance(text, dict) and text.get("content"):
+            parts.append(f'<div class="detail-text-block">{content_to_detail_html(text["content"])}</div>')
+    return "".join(parts)
+
+def build_detail_render_data(item: dict) -> dict:
+    cover_url = get_cover_url(item)
+    title = item.get("title") or "（未知标题）"
+    time_str = format_publish_time(item.get("published_at_ts"))
+    time_label = "发布时间"
+    content_html = content_to_detail_html(get_content_text(item)) or "（暂无正文）"
+    caption_html = build_caption_content(item) or content_html
+    return {
+        "title": title,
+        "timeStr": time_str,
+        "timeLabel": time_label,
+        "coverUrl": cover_url,
+        "contentHtml": content_html,
+        "captionHtml": caption_html,
+        "copyright": "由 AstrBot & Endfield Plugin 渲染",
+        "pageWidth": 720
+    }
+
+@register("astrbot_plugin_endfield", "bvzrays & 熵增项目组", "终末地协议终端", "v1.4.0", "https://github.com/bvzrays/astrbot_plugin_endfield")
 class EndfieldPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -58,13 +132,26 @@ class EndfieldPlugin(Star):
                 ext = "." + rp.split("/")[-1].split(".")[-1].split("?")[0]
                 if len(ext) > 5: ext = ".png" # Fix for weird query params
                 
-            # Basic SSRF prevention: Do not allow localhost/127.0.0.1 or obvious private IP requests
+            # Strict SSRF prevention using actual IP resolution
             from urllib.parse import urlparse
-            parsed_url = urlparse(rp)
-            hostname = parsed_url.hostname or ""
-            if hostname.startswith("127.") or hostname == "localhost" or hostname.startswith("192.168.") or hostname.startswith("10.") or (hostname.startswith("172.") and len(hostname.split(".")) == 4 and 16 <= int(hostname.split(".")[1]) <= 31):
-                logger.warning(f"Blocked potential SSRF access to {rp}")
-                return rp
+            import socket, ipaddress
+            
+            try:
+                parsed_url = urlparse(rp)
+                hostname = parsed_url.hostname
+                if not hostname:
+                    return ""
+                    
+                addr_info = socket.getaddrinfo(hostname, None)
+                for addr in addr_info:
+                    ip = addr[4][0]
+                    ip_obj = ipaddress.ip_address(ip)
+                    if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_unspecified or ip_obj.is_link_local or ip_obj.is_multicast:
+                        logger.warning(f"Blocked potential SSRF access to {rp} (Resolved IP: {ip})")
+                        return ""
+            except Exception as e:
+                logger.warning(f"Blocked potential SSRF access to {rp} due to resolving error: {e}")
+                return ""
                 
             cache_file = os.path.join(cache_dir, f"{url_hash}{ext}")
             
@@ -101,7 +188,11 @@ class EndfieldPlugin(Star):
     async def parallel_download_b64(self, urls):
         """并行下载多个URL并返回本地路径或B64"""
         if not urls: return []
-        tasks = [self.get_b64(url) for url in urls]
+        sem = asyncio.Semaphore(10)
+        async def _download(u):
+            async with sem:
+                return await self.get_b64(u)
+        tasks = [_download(url) for url in urls]
         return await asyncio.gather(*tasks)
 
     async def initialize(self):
@@ -155,7 +246,7 @@ class EndfieldPlugin(Star):
             "colCount": 2,
             "colWidth": 330,
             "widthGap": 20,
-            "copyright": "Endfield Protocol Terminal | v1.2.0",
+            "copyright": "Endfield Protocol Terminal | v1.4.0",
             "pluResPath": "file:///" + os.path.abspath(self.renderer.res_path).replace("\\", "/") + "/"
         }
         
@@ -168,7 +259,7 @@ class EndfieldPlugin(Star):
             logger.warning(f"渲染菜单失败: {e}")
             
         # Fallback to plain text if rendering fails
-        help_text = "【终末地协议终端 v1.3.0】\n"
+        help_text = "【终末地协议终端 v1.4.0】\n"
         for group in render_data["helpGroup"]:
             if group.get("group"):
                 help_text += f"\n{group['group']}\n"
@@ -181,7 +272,7 @@ class EndfieldPlugin(Star):
     async def bind_list(self, event: AstrMessageEvent):
         '''查看已绑定账号'''
         user_id = event.get_sender_id()
-        bindings = self.user_mgr.get_user_bindings(user_id)
+        bindings = await self.user_mgr.get_user_bindings(user_id)
         if not bindings:
             yield event.plain_result("暂无绑定账号。")
             return
@@ -224,7 +315,7 @@ class EndfieldPlugin(Star):
     async def switch_bind(self, event: AstrMessageEvent, index: int):
         '''切换当前使用的账号'''
         user_id = event.get_sender_id()
-        bindings = self.user_mgr.get_user_bindings(user_id)
+        bindings = await self.user_mgr.get_user_bindings(user_id)
         if not (1 <= index <= len(bindings)):
             yield event.plain_result(f"序号错误，请选择 1 到 {len(bindings)} 之间的数字。")
             return
@@ -241,7 +332,7 @@ class EndfieldPlugin(Star):
     async def delete_bind(self, event: AstrMessageEvent, index: int):
         '''删除指定绑定账号'''
         user_id = event.get_sender_id()
-        bindings = self.user_mgr.get_user_bindings(user_id)
+        bindings = await self.user_mgr.get_user_bindings(user_id)
         if not (1 <= index <= len(bindings)):
             yield event.plain_result(f"序号错误，请选择 1 到 {len(bindings)} 之间的数字。")
             return
@@ -336,7 +427,7 @@ class EndfieldPlugin(Star):
             "last_sync": int(time.time() * 1000)
         }
         
-        existing = self.user_mgr.get_user_bindings(user_id)
+        existing = await self.user_mgr.get_user_bindings(user_id)
         existing.append(new_account)
         await self.user_mgr.save_user_bindings(user_id, existing)
         
@@ -344,7 +435,7 @@ class EndfieldPlugin(Star):
             "nickname": new_account["nickname"],
             "role_id": new_account["role_id"],
             "server_id": "官服" if new_account["server_id"] == 1 else "B服",
-            "count": len(self.user_mgr.get_user_bindings(user_id))
+            "count": len(await self.user_mgr.get_user_bindings(user_id))
         }))
 
     @filter.command("扫码绑定")
@@ -367,7 +458,6 @@ class EndfieldPlugin(Star):
             tmp.write(img_data)
             tmp_path = tmp.name
             
-        from astrbot.api.message_components import Image
         yield event.chain_result([
             Image.fromFileSystem(tmp_path),
             Plain("请使用森空岛 APP 扫描二维码进行登录。\n二维码有效时间约 3 分钟。")
@@ -418,7 +508,7 @@ class EndfieldPlugin(Star):
             "bind_time": int(time.time() * 1000),
             "last_sync": int(time.time() * 1000)
         }
-        existing = self.user_mgr.get_user_bindings(user_id)
+        existing = await self.user_mgr.get_user_bindings(user_id)
         existing.append(acc)
         await self.user_mgr.save_user_bindings(user_id, existing)
         
@@ -426,7 +516,7 @@ class EndfieldPlugin(Star):
             "nickname": acc["nickname"],
             "role_id": acc["role_id"],
             "server_id": "官服" if acc["server_id"] == 1 else "B服",
-            "count": len(self.user_mgr.get_user_bindings(user_id))
+            "count": len(await self.user_mgr.get_user_bindings(user_id))
         }))
 
     @filter.command("手机绑定")
@@ -478,7 +568,7 @@ class EndfieldPlugin(Star):
                 "bind_time": int(time.time() * 1000),
                 "last_sync": 0,
             }
-            existing = self.user_mgr.get_user_bindings(event.get_sender_id())
+            existing = await self.user_mgr.get_user_bindings(event.get_sender_id())
             existing.append(acc)
             await self.user_mgr.save_user_bindings(event.get_sender_id(), existing)
             
@@ -486,7 +576,7 @@ class EndfieldPlugin(Star):
                 "nickname": acc["nickname"],
                 "role_id": acc["role_id"],
                 "server_id": "官服" if acc["server_id"] == 1 else "B服",
-                "count": len(self.user_mgr.get_user_bindings(event.get_sender_id()))
+                "count": len(await self.user_mgr.get_user_bindings(event.get_sender_id()))
             }))
             controller.stop()
             
@@ -498,7 +588,7 @@ class EndfieldPlugin(Star):
     async def stamina(self, event: AstrMessageEvent):
         '''查询理智状态'''
         user_id = event.get_sender_id()
-        binding = self.user_mgr.get_primary_binding(user_id)
+        binding = await self.user_mgr.get_primary_binding(user_id)
         if not binding:
             yield event.plain_result("未绑定账号，请输入 :帮助 查看绑定方式。")
             return
@@ -593,7 +683,7 @@ class EndfieldPlugin(Star):
     async def note(self, event: AstrMessageEvent):
         '''查询角色便签'''
         user_id = event.get_sender_id()
-        binding = self.user_mgr.get_primary_binding(user_id)
+        binding = await self.user_mgr.get_primary_binding(user_id)
         if not binding:
             yield event.plain_result("未绑定账号，请输入 :帮助 查看绑定方式。")
             return
@@ -691,7 +781,7 @@ class EndfieldPlugin(Star):
     async def attendance(self, event: AstrMessageEvent):
         '''每日签到'''
         user_id = event.get_sender_id()
-        all_bindings = self.user_mgr.get_user_bindings(user_id)
+        all_bindings = await self.user_mgr.get_user_bindings(user_id)
         if not all_bindings:
             yield event.plain_result("未绑定账号。")
             return
@@ -723,7 +813,7 @@ class EndfieldPlugin(Star):
     async def operator_list(self, event: AstrMessageEvent):
         '''查询干员列表'''
         user_id = event.get_sender_id()
-        binding = self.user_mgr.get_primary_binding(user_id)
+        binding = await self.user_mgr.get_primary_binding(user_id)
         if not binding:
             yield event.plain_result("未绑定账号。")
             return
@@ -825,7 +915,7 @@ class EndfieldPlugin(Star):
     async def operator_panel(self, event: AstrMessageEvent, char_name: str):
         '''查询干员详细面板'''
         user_id = event.get_sender_id()
-        binding = self.user_mgr.get_primary_binding(user_id)
+        binding = await self.user_mgr.get_primary_binding(user_id)
         if not binding:
             yield event.plain_result("未绑定账号。")
             return
@@ -882,7 +972,7 @@ class EndfieldPlugin(Star):
     async def gacha_records(self, event: AstrMessageEvent, page: int = 1):
         '''查询抽卡记录'''
         user_id = event.get_sender_id()
-        binding = self.user_mgr.get_primary_binding(user_id)
+        binding = await self.user_mgr.get_primary_binding(user_id)
         if not binding:
             yield event.plain_result("未绑定账号。")
             return
@@ -952,7 +1042,7 @@ class EndfieldPlugin(Star):
     async def gacha_sync(self, event: AstrMessageEvent):
         '''同步抽卡记录并分析'''
         user_id = event.get_sender_id()
-        binding = self.user_mgr.get_primary_binding(user_id)
+        binding = await self.user_mgr.get_primary_binding(user_id)
         if not binding:
             yield event.plain_result("未绑定账号。请先使用 /终末地扫码登录。")
             return
@@ -992,7 +1082,7 @@ class EndfieldPlugin(Star):
     async def gacha_analysis(self, event: AstrMessageEvent):
         '''生成抽卡分析图'''
         user_id = event.get_sender_id()
-        binding = self.user_mgr.get_primary_binding(user_id)
+        binding = await self.user_mgr.get_primary_binding(user_id)
         if not binding:
             yield event.plain_result("未绑定账号。")
             return
@@ -1025,6 +1115,7 @@ class EndfieldPlugin(Star):
         except Exception:
             pass
             
+        pool_chars_data = None
         try:
             pool_chars_data = await self.client.get_gacha_pool_chars()
             if pool_chars_data and "pools" in pool_chars_data:
@@ -1081,7 +1172,6 @@ class EndfieldPlugin(Star):
         # Build UP characters map from pool info
         pool_up_map = {}
         try:
-            pool_chars_data = await self.client.get_gacha_pool_chars()
             if pool_chars_data and "pools" in pool_chars_data:
                 for p in pool_chars_data.get("pools", []):
                     pname = str(p.get("pool_name", "")).strip()
@@ -1275,52 +1365,92 @@ class EndfieldPlugin(Star):
         else:
             yield event.plain_result(msg)
 
-    @filter.regex(r"^(?:[:：]|[/#](?:zmd|终末地))(十连|百连|单抽)(?:\s*[（(]?(常驻|UP|武器|限定)[）)]?)?\s*$")
-    async def gacha_simulate(self, event: AstrMessageEvent, cmd: str, pool_name: str = None):
-        '''模拟抽卡'''
-        pool_type_map = {"常驻": "standard", "UP": "limited", "限定": "limited", "武器": "weapon"}
-        pool_type = pool_type_map.get(pool_name, "limited")
-        
-        user_id = event.get_sender_id()
-        scope = f"user_{user_id}"
-        state = self.sim_mgr.get_state(scope, pool_type)
-        
-        if cmd == "单抽":
-            res = await self.client.post_gacha_simulate_single(pool_type, state)
-            if res and "result" in res:
-                await self.sim_mgr.save_state(scope, pool_type, res.get("state"))
-                r = res["result"]
-                msg = f"【模拟单抽 - {pool_name or 'UP池'}】\n★{r.get('rarity')} {r.get('name') or ''}"
-                yield event.plain_result(msg)
-        elif cmd == "十连":
-            res = await self.client.post_gacha_simulate_ten(pool_type, state)
-            if res and "results" in res:
-                await self.sim_mgr.save_state(scope, pool_type, res.get("state"))
-                msg = f"【模拟十连 - {pool_name or 'UP池'}】\n"
-                for r in res["results"]:
-                    msg += f"★{r.get('rarity')} {r.get('name') or ''}\n"
-                yield event.plain_result(msg)
-        elif cmd == "百连":
-             # Similar to ten but repeat 10 times if needed or just one call if backend supports
-             yield event.plain_result("百连模拟正在开发中...")
-
     @filter.command("公告")
-    async def announcement_list(self, event: AstrMessageEvent):
-        '''获取公告列表'''
+    async def announcement_cmd(self, event: AstrMessageEvent):
+        '''获取公告列表 或 指定公告详情'''
+        text = event.message_str.strip()
+        import re
+        
+        # 1. 指定详情 (公告 <序号>)
+        match_detail = re.match(r"^公告\s+(\d+)$", text)
+        if match_detail:
+            index = max(1, int(match_detail.group(1)))
+            res = await self.client.get_announcements(1, max(index, 20))
+            if not res or "list" not in res:
+                yield event.plain_result("获取公告列表失败。")
+                return
+                
+            list_data = res.get("list", [])
+            if not list_data or index > len(list_data):
+                yield event.plain_result(f"找不到第 {index} 条公告（当前列表共 {len(list_data)} 条）")
+                return
+                
+            list_item = list_data[index - 1]
+            item_id = list_item.get("item_id")
+            item = list_item
+            if item_id:
+                detail_res = await self.client.get_announcement_detail(str(item_id))
+                if detail_res:
+                    item = {**list_item, **detail_res}
+                    
+            render_data = build_detail_render_data(item)
+            url = await self.renderer.render_html("announcement/detail.html", render_data)
+            if url:
+                yield event.image_result(url)
+            else:
+                yield event.plain_result("渲染公告详情图片失败。")
+            return
+
+        # 2. 忽略包含多余后缀的命令（交给“公告最新”或其他逻辑处理）
+        if text != "公告":
+            return
+            
+        # 3. 正常获取公告列表
         res = await self.client.get_announcements(1, 5)
-        if not res or "data" not in res:
+        if not res or "list" not in res:
             yield event.plain_result("获取公告失败。")
             return
             
-        list_data = res["data"].get("list", [])
+        list_data = res.get("list", [])
         if not list_data:
             yield event.plain_result("暂无公告。")
             return
             
-        msg = "【最近公告】\n"
-        for i, item in enumerate(list_data):
-            msg += f"{i+1}. {item.get('title')}\n"
-        yield event.plain_result(msg)
+        render_data = {
+            "listHeader": "终末地公告",
+            "listSubtitle": f"共 {'未知' if 'total' not in res else res['total']} 条公告 (显示前 {len(list_data)} 条)",
+            "list": [
+                {
+                    "index": i + 1,
+                    "title": item.get('title') or "（未知标题）",
+                    "timeStr": format_publish_time(item.get('published_at_ts')),
+                    "coverUrl": get_cover_url(item)
+                } for i, item in enumerate(list_data)
+            ],
+            "footerLine1": "由 AstrBot & Endfield Plugin 渲染",
+            "pageWidth": 560
+        }
+        
+        url = await self.renderer.render_html("announcement/list.html", render_data)
+        if url:
+            yield event.image_result(url)
+        else:
+            yield event.plain_result("渲染公告图片失败。")
+
+    @filter.command("公告最新")
+    async def announcement_latest(self, event: AstrMessageEvent):
+        '''获取最新一条公告详情'''
+        res = await self.client.get_announcement_latest()
+        if not res:
+            yield event.plain_result("获取最新公告失败。")
+            return
+            
+        render_data = build_detail_render_data(res)
+        url = await self.renderer.render_html("announcement/detail.html", render_data)
+        if url:
+            yield event.image_result(url)
+        else:
+            yield event.plain_result("渲染公告详情图片失败。")
 
     @filter.command("订阅公告")
     async def subscribe_announcement(self, event: AstrMessageEvent):
@@ -1348,8 +1478,12 @@ class EndfieldPlugin(Star):
     async def announcement_task(self):
         '''后台公告推送任务'''
         while True:
-            await asyncio.sleep(600) # Check every 10 mins
-            subs = self.announce_mgr.get_subscriptions()
+            # 动态获取配置项，防止过短
+            poll_interval_mins = int(self.config.get('announcement_poll_interval', 10))
+            poll_interval_secs = max(60, poll_interval_mins * 60)
+            await asyncio.sleep(poll_interval_secs)
+
+            subs = await self.announce_mgr.get_subscriptions()
             if not subs:
                 continue
                 
@@ -1360,68 +1494,26 @@ class EndfieldPlugin(Star):
             ts = int(latest["published_at_ts"])
             for s in subs:
                 if ts > int(s.get("since_ts", 0)):
-                    # Push!
-                    msg = f"【终末地新公告】\n{latest.get('title')}\n{latest.get('summary') or ''}"
+                    # Push image instead of plain text if possible
+                    item_id = latest.get("item_id")
+                    item = latest
+                    if item_id:
+                        detail_res = await self.client.get_announcement_detail(str(item_id))
+                        if detail_res: item = {**latest, **detail_res}
+                        
+                    render_data = build_detail_render_data(item)
+                    url = await self.renderer.render_html("announcement/detail.html", render_data)
                     try:
-                        await self.context.send_message(s["group_id"], [Plain(msg)])
+                        if url:
+                            await self.context.send_message(s["group_id"], [Image.fromFileSystem(url.replace("file:///", ""))])
+                        else:
+                            msg = f"【终末地新公告】\n{latest.get('title')}\n{latest.get('summary') or ''}"
+                            await self.context.send_message(s["group_id"], [Plain(msg)])
                     except Exception as e:
                         logger.error(f"Failed to push announcement to {s['group_id']}: {e}")
                     await self.announce_mgr.update_since_ts(s["group_id"], ts)
 
 
-
-    @filter.command("maa设备")
-    async def maa_device(self, event: AstrMessageEvent):
-        '''查看MaaEnd设备列表'''
-        user_id = event.get_sender_id()
-        device_ids = self.maa_mgr.get_user_devices(user_id)
-        res = await self.client.get_maaend_devices()
-        if not res or "devices" not in res:
-            yield event.plain_result("获取设备列表失败。")
-            return
-            
-        all_devices = res["devices"]
-        user_devices = [d for d in all_devices if d.get("device_id") in device_ids]
-        
-        if not user_devices:
-            yield event.plain_result("尚未绑定任何设备。请使用 :maa绑定 获取绑定码。")
-            return
-            
-        msg = "【我的 MaaEnd 设备】\n"
-        for i, d in enumerate(user_devices):
-            msg += f"{i+1}. {d.get('device_name') or d.get('device_id')} [{d.get('status')}]\n"
-        yield event.plain_result(msg)
-
-    @filter.command("maa绑定")
-    async def maa_bind(self, event: AstrMessageEvent):
-        '''获取MaaEnd绑定码'''
-        res = await self.client.create_maaend_bind_code()
-        if not res or "bind_code" not in res:
-             yield event.plain_result("生成绑定码失败。")
-             return
-             
-        data = res
-        msg = f"【MaaEnd 绑定码】\n绑定码：{data.get('bind_code')}\n请在 MaaEnd Client 中输入此动态码完成绑定。"
-        yield event.plain_result(msg)
-
-    @filter.command("maa截图")
-    async def maa_screenshot(self, event: AstrMessageEvent):
-        '''截取默认设备屏幕'''
-        user_id = event.get_sender_id()
-        device_id = self.maa_mgr.get_default_device(user_id)
-        if not device_id:
-            yield event.plain_result("未设置默认设备。")
-            return
-            
-        yield event.plain_result("正在请求截图...")
-        res = await self.client.get_maaend_screenshot(device_id)
-        if res and isinstance(res, bytes):
-            # Save temporary image or send raw bytes?
-            # AstrBot usually takes URL or path.
-            # For now, just send a success message or implement better image handling
-            yield event.plain_result("截图成功（功能开发中，暂不显示图片）。")
-        else:
-            yield event.plain_result("截图失败。")
 
     async def terminate(self):
         if self._announcement_task_handle:
@@ -1430,4 +1522,6 @@ class EndfieldPlugin(Star):
             await self._http_client.aclose()
         if self.client:
             await self.client.close()
+        if self.renderer:
+            await self.renderer.close()
         logger.info("Endfield plugin terminated.")

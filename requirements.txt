@@ -1,3 +1,2 @@
 httpx
 jinja2
-playwright
