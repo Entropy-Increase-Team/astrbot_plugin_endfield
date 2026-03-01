@@ -2,8 +2,8 @@
 
 ![astrbot_plugin_endfield](https://socialify.git.ci/bvzrays/astrbot_plugin_endfield/image?description=1&forks=1&issues=1&language=1&name=1&owner=1&pattern=Circuit+Board&pulls=1&stargazers=1&theme=Dark)
 
-# astrbot_plugin_endfield-点亮⭐！
-
+# astrbot_plugin_endfield
+# ——点亮⭐！
 <img src="resources/img/ET logo.svg" width="200" />
 
 基于[森空岛 API](https://skland.com) 及 [终末地协议终端](https://end.shallow.ink) 的 AstrBot **终末地** 插件 · 绑定 / 便签 / 干员面板 / 抽卡分析 / 签到
@@ -163,4 +163,5 @@
 > [!TIP]
 > 终末地-协议终端 交流群：[160759479](https://qm.qq.com/q/zZXruW6V4Q)
 > astrbot 移植版作者反馈群：[870543663](https://qm.qq.com/q/kPxQZy5gg8)
+
 
