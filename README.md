@@ -8,8 +8,6 @@
 
 </div>
 
-## 注：本插件开发中，部分功能不可用（readme中列出的指令可用），仅展示功能和绑定功能可用
-
 ## 安装与配置
 
 1. 在 AstrBot 插件管理器中搜索 `astrbot_plugin_endfield` 并安装。
@@ -53,16 +51,17 @@
 | `切换绑定 [序号]` | 切换当前主账号 |
 | `删除绑定 [序号]` | 删除指定账号绑定 |
 | **数据查询 (渲染图)** | |
-| `便签` 或 `理智` | 查询当前理智、日常活跃度、回满时间 |
+| `便签` |  查询账号数据总览 |
+| `理智/订阅理智` |  查询当前理智、日常活跃度、回满时间/自动满值推送 |
 | `干员列表` | 查询当前持有的干员图鉴及等级 |
 | `<干员名>面板` | 查询单个干员的当前面板（不可用） |
 | `抽卡记录` | 查询近期抽卡历史记录 |
 | `抽卡分析` | 生成全卡池抽卡数据统计分析图 |
-| `签到` | 执行所有账号的森空岛每日签到 |
+| `签到` | 执行所有账号的森空岛每日签到，每日自动 |
 | `日历` | 查看活动版本日历图（自动获取Wiki横幅） |
 | `帝江号建设` | 查询基础建设进度 |
 | `地区建设` | 查询地区开发进度 |
-| `公告` | 获取官方公告列表及推送 |
+| `公告/订阅公告` | 获取官方公告列表及推送 |
 
 ## 功能截图
 
@@ -85,6 +84,22 @@
 | `抽卡记录`| 
 
 <img width="1440" height="1134" alt="87eb6ffe8ce92a37525f574c5fedcd87" src="https://github.com/user-attachments/assets/aacab909-6a04-467a-aeaf-a525558e1ddb" />
+
+| `帝江号建设`| 
+
+<img width="1700" height="2428" alt="1f3378dd96f9e57267e39bcb1d43cd17" src="https://github.com/user-attachments/assets/df71bbdf-febb-4f00-95ba-157f5788629f" />
+
+| `地区建设`| 
+
+<img width="1700" height="1114" alt="e75bf72ffc4800933d052421aad207ea" src="https://github.com/user-attachments/assets/cf3b53b9-fa78-4b71-b682-9077dfafc3c1" />
+
+| `公告`| 
+
+<img width="1700" height="2430" alt="79cd41f93c725a1a195529d523700936" src="https://github.com/user-attachments/assets/99da9389-1326-487c-b11e-d526d0e251fb" />
+
+| `日历`| 
+
+<img width="1280" height="1135" alt="b06aa9d61b1d7603e346234751c0e64a_720" src="https://github.com/user-attachments/assets/b3dbe4c9-d916-4abd-aeee-a434a43d4c0f" />
 
 ---
 
@@ -186,6 +201,7 @@
 
 > [!TIP]
 > astrbot移植作者bvzrays插件反馈，加入 [870543663](https://qm.qq.com/q/kPxQZy5gg8) 。
+
 
 
 
