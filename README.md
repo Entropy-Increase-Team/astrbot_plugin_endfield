@@ -4,7 +4,7 @@
 
 # astrbot_plugin_endfield
 
-<img src="logo.png" width="200" />
+<img src="resources/img/ET logo.svg" width="200" />
 
 基于[森空岛 API](https://skland.com) 及 [终末地协议终端](https://end.shallow.ink)  的 AstrBot **终末地** 插件 · 绑定 / 便签 / 干员面板 / 抽卡分析 / 签到
 
@@ -203,6 +203,7 @@
 
 > [!TIP]
 > astrbot移植作者bvzrays插件反馈，加入 [870543663](https://qm.qq.com/q/kPxQZy5gg8) 。
+
 
 
 
