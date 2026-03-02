@@ -249,46 +249,43 @@ class EndfieldPlugin(Star):
             "helpGroup": [
                 {
                     "type": "tips",
-                    "items": [
-                        {"title": "提示", "text": "指令触发符：/ (默认) 或 :"}
+                    "tipItems": [
+                        {"title": "提示", "text": "指令触发符：/"}
                     ]
                 },
                 {
                     "group": "账号绑定",
                     "list": [
-                        {"title": ":授权登陆", "desc": "网页授权登录", "icon": True},
-                        {"title": ":扫码绑定", "desc": "扫码快捷登录", "icon": True},
-                        {"title": ":手机绑定 [手机号]", "desc": "验证码登录", "icon": True},
-                        {"title": ":绑定列表", "desc": "查看已绑定账号", "icon": True},
-                        {"title": ":切换绑定 [序号]", "desc": "切换当前账号", "icon": True},
-                        {"title": ":删除绑定 [序号]", "desc": "删除绑定账号", "icon": True}
+                        {"title": "授权登陆", "desc": "网页安全授权登录（推荐）", "icon": True},
+                        {"title": "扫码绑定", "desc": "扫描二维码快捷登录", "icon": True},
+                        {"title": "手机绑定 [手机号]", "desc": "验证码登录（暂不可用）", "icon": True},
+                        {"title": "绑定列表", "desc": "查看所有绑定账号", "icon": True},
+                        {"title": "切换绑定 [序号]", "desc": "切换当前主账号", "icon": True},
+                        {"title": "删除绑定 [序号]", "desc": "解绑指定账号", "icon": True}
                     ]
                 },
                 {
-                    "group": "信息查询",
+                    "group": "数据查询",
                     "list": [
-                        {"title": ":便签", "desc": "查询理智与日常活跃", "icon": True},
-                        {"title": ":理智", "desc": "快捷查询理智状态", "icon": True},
-                        {"title": ":干员列表", "desc": "查询干员列表", "icon": True},
-                        {"title": ":<干员名>面板", "desc": "查询干员详细面板", "icon": True}
-                    ]
-                },
-                {
-                    "group": "其他功能",
-                    "list": [
-                        {"title": ":公告", "desc": "查看最新官方公告", "icon": True},
-                        {"title": ":wiki 干员 [名称]", "desc": "查询干员百科", "icon": True},
-                        {"title": ":订阅理智", "desc": "满理智提醒", "icon": True},
-                        {"title": ":取消订阅理智", "desc": "取消满理智提醒", "icon": True},
-                        {"title": ":日历", "desc": "查看最新活动日历图", "icon": True}
+                        {"title": "便签", "desc": "账号数据总览", "icon": True},
+                        {"title": "理智 / 订阅理智", "desc": "理智查询/满值推送", "icon": True},
+                        {"title": "干员列表", "desc": "持有干员图鉴", "icon": True},
+                        {"title": "<干员名>面板", "desc": "单干员详情（开发中）", "icon": True},
+                        {"title": "抽卡记录", "desc": "近期抽卡历史", "icon": True},
+                        {"title": "抽卡分析", "desc": "全卡池统计分析", "icon": True},
+                        {"title": "签到", "desc": "执行每日签到", "icon": True},
+                        {"title": "日历", "desc": "活动版本日历", "icon": True},
+                        {"title": "帝江号建设", "desc": "基建进度查询", "icon": True},
+                        {"title": "地区建设", "desc": "地区开发进度", "icon": True},
+                        {"title": "公告 / 订阅公告", "desc": "官方公告列表/推送", "icon": True}
                     ]
                 }
             ],
-            "contentWidth": 800,
-            "colCount": 2,
-            "colWidth": 330,
-            "widthGap": 20,
-            "copyright": "Endfield Protocol Terminal | v1.4.0",
+            "contentWidth": 1280,
+            "colCount": 3,
+            "colWidth": 380,
+            "widthGap": 24,
+            "copyright": "Endfield Protocol Terminal | v1.7.0",
             "pluResPath": "file:///" + os.path.abspath(self.renderer.res_path).replace("\\", "/") + "/"
         }
         
@@ -632,7 +629,7 @@ class EndfieldPlugin(Star):
         user_id = event.get_sender_id()
         binding = await self.user_mgr.get_primary_binding(user_id)
         if not binding:
-            yield event.plain_result("未绑定账号，请输入 :帮助 查看绑定方式。")
+            yield event.plain_result("未绑定账号，请输入 /zmd 查看绑定方式。")
             return
 
         yield event.plain_result(get_message("stamina.loading"))
@@ -689,7 +686,7 @@ class EndfieldPlugin(Star):
             "userAvatar": await self.get_b64(user_avatar) if user_avatar else "",
             "current": s_current,
             "max": s_max,
-            "staminaPercent": (s_current / max(s_max, 1)) * 100,
+            "staminaPercent": s_current / max(s_max, 1),
             "fullTime": full_time,
             "activation": a_current,
             "maxActivation": a_max,
@@ -727,7 +724,7 @@ class EndfieldPlugin(Star):
         user_id = event.get_sender_id()
         binding = await self.user_mgr.get_primary_binding(user_id)
         if not binding:
-            yield event.plain_result("未绑定账号，请输入 :帮助 查看绑定方式。")
+            yield event.plain_result("未绑定账号，请输入 /zmd 查看绑定方式。")
             return
 
         yield event.plain_result("正在获取实时便签...")
@@ -954,8 +951,16 @@ class EndfieldPlugin(Star):
         yield event.plain_result(msg)
 
     @filter.regex(r"^\*?(?:终末地)?\s*(.+?)\s*(?:终末地)?面板$")
-    async def operator_panel(self, event: AstrMessageEvent, char_name: str):
+    async def operator_panel(self, event: AstrMessageEvent):
         '''查询干员详细面板'''
+        import re as _re
+        msg = event.get_message_str().strip()
+        m = _re.match(r"^\*?(?:终末地)?\s*(.+?)\s*(?:终末地)?面板$", msg)
+        char_name = m.group(1).strip() if m else ""
+        if not char_name:
+            yield event.plain_result("请指定干员名称，例如：莱万汀面板")
+            return
+
         user_id = event.get_sender_id()
         binding = await self.user_mgr.get_primary_binding(user_id)
         if not binding:
@@ -965,42 +970,214 @@ class EndfieldPlugin(Star):
         yield event.plain_result(f"正在查询 {char_name} 的面板...")
         
         token = binding.get("framework_token")
-        # 1. Fetch note to find the character matched by name
-        note = await self.client.get_note(token, binding.get("role_id"), binding.get("server_id", 1))
+        role_id = binding.get("role_id")
+        server_id = binding.get("server_id", 1)
+
+        # 1. Get note to find the character by name
+        note = await self.client.get_note(token, role_id, server_id)
         if not note or "chars" not in note:
             yield event.plain_result("获取干员列表失败。")
             return
-            
+
         chars = note["chars"]
-        matched = next((c for c in chars if char_name in c.get("name", "")), None)
+        base_info = note.get("base", {})
+        # Exact match first, then fuzzy
+        matched = next((c for c in chars if c.get("name", "") == char_name), None)
+        if not matched:
+            matched = next((c for c in chars if char_name in c.get("name", "")), None)
         if not matched:
             yield event.plain_result(f"未在当前账号找到干员 {char_name}。")
             return
-            
+
         inst_id = matched.get("id")
-        # 2. Fetch full detail
+        if not inst_id:
+            yield event.plain_result("找到干员但缺少实例 ID，无法查询详情。")
+            return
+
+        # 2. Fetch full operator detail
         full_res = await self.client.get_card_char(token, inst_id)
-        if not full_res or "detail" not in full_res:
-             yield event.plain_result("获取面板详情失败。")
-             return
-             
-        detail = full_res["detail"]
-        operator = detail.get("char", {})
-        char_data = operator.get("charData", {})
-        
-        # 3. Prepare render data (simplified extraction)
-        rarity = int(char_data.get("rarity", {}).get("value", 1))
-        render_data = {
-            "name": char_data.get("name"),
-            "level": operator.get("level", 0),
-            "stars": list(range(1, rarity + 1)),
-            "profession": char_data.get("profession", {}).get("value"),
-            "property": char_data.get("property", {}).get("value"),
-            "illustrationUrl": char_data.get("illustrationUrl") or char_data.get("avatarRtUrl"),
-            "pluResPath": "file:///" + os.path.abspath(self.renderer.res_path).replace("\\", "/") + "/",
-            "copyright": "Endfield Plugin | AstrBot"
+        if not full_res:
+            yield event.plain_result("获取面板详情失败。")
+            return
+
+        # Extract structure - actual API: full_res = {code, message, data: {detail: {...}}}
+        detail = (full_res.get("data") or {}).get("detail") or full_res.get("detail") or full_res
+        char_data = detail.get("charData") or {}
+        user_skills = detail.get("userSkills") or {}
+
+        if not char_data:
+            yield event.plain_result("干员数据结构异常，无法渲染面板。")
+            return
+
+        def _parse_rarity(raw):
+            val = raw.get("value", 1) if isinstance(raw, dict) else 1
+            try:
+                return max(1, min(6, int(val)))
+            except Exception:
+                return 1
+
+        def _make_stars(r):
+            return list(range(1, r + 1))
+
+        def _pick_equip(slot_raw):
+            if not isinstance(slot_raw, dict):
+                return None
+            raw = slot_raw.get("equipData") or slot_raw
+            if not raw or not raw.get("name"):
+                return None
+            lv_field = raw.get("level", "")
+            lv = lv_field.get("value") if isinstance(lv_field, dict) else lv_field
+            r = _parse_rarity(raw.get("rarity", {}))
+            return {"name": raw.get("name", ""), "iconUrl": raw.get("iconUrl", ""), "level": lv, "stars": _make_stars(r)}
+
+        rarity = _parse_rarity(char_data.get("rarity", {}))
+        stars = _make_stars(rarity)
+        potential_level = min(5, max(0, int(detail.get("potentialLevel", 0) or 0)))
+        potential_stars = [i < potential_level for i in range(5)]
+        evolve_phase = int(detail.get("evolvePhase", 0) or 0)  # 0-4
+
+        # Skill type label mapping
+        _skill_type_map = {
+            "skill_type_normal_attack": "普通攻击",
+            "skill_type_normal_skill": "战技",
+            "skill_type_combo_skill": "连携技",
+            "skill_type_ultimate_skill": "终结技",
         }
-        
+
+        raw_skills = char_data.get("skills") or []
+        skills = []
+        for s in raw_skills:
+            s_id = s.get("id", "")
+            u = user_skills.get(s_id, {}) if isinstance(user_skills, dict) else {}
+            skill_type_key = (s.get("type") or {}).get("key", "")
+            skills.append({
+                "name": s.get("name", "未知"),
+                "iconUrl": s.get("iconUrl", ""),
+                "level": u.get("level", 1),
+                "maxLevel": u.get("maxLevel", ""),
+                "typeLabel": _skill_type_map.get(skill_type_key, ""),
+                "typeKey": skill_type_key,
+            })
+        display_skills = skills[:4]
+        while len(display_skills) < 4:
+            display_skills.append({"empty": True})
+
+        weapon_raw = detail.get("weapon")
+        weapon = None
+        if isinstance(weapon_raw, dict):
+            w_data = weapon_raw.get("weaponData", {})
+            if w_data and w_data.get("name"):
+                wr = _parse_rarity(w_data.get("rarity", {}))
+                w_passive_skills = [s.get("value", "") for s in (w_data.get("skills") or []) if s.get("value")]
+                weapon = {
+                    "name": w_data.get("name", ""),
+                    "level": weapon_raw.get("level", 0),
+                    "iconUrl": w_data.get("iconUrl", ""),
+                    "stars": _make_stars(wr),
+                    "refineLevel": weapon_raw.get("refineLevel", 0),
+                    "breakthroughLevel": weapon_raw.get("breakthroughLevel", 0),
+                    "passiveSkills": w_passive_skills,
+                }
+
+        def _pick_equip_full(slot_raw):
+            if not isinstance(slot_raw, dict):
+                return None
+            raw = slot_raw.get("equipData") or slot_raw
+            if not raw or not raw.get("name"):
+                return None
+            lv_field = raw.get("level", "")
+            lv = lv_field.get("value") if isinstance(lv_field, dict) else lv_field
+            r_raw = raw.get("rarity", {})
+            r = _parse_rarity(r_raw)
+            rarity_label = r_raw.get("value", "") if isinstance(r_raw, dict) else ""
+            suit = raw.get("suit") or {}
+            return {
+                "name": raw.get("name", ""),
+                "iconUrl": raw.get("iconUrl", ""),
+                "level": lv,
+                "stars": _make_stars(r),
+                "rarityLabel": rarity_label,
+                "suitName": suit.get("name", ""),
+                "suitId": suit.get("id", ""),
+            }
+
+        body_equip = _pick_equip_full(detail.get("bodyEquip") or {})
+        arm_equip = _pick_equip_full(detail.get("armEquip") or {})
+        first_acc = _pick_equip_full(detail.get("firstAccessory") or {})
+        second_acc = _pick_equip_full(detail.get("secondAccessory") or {})
+
+        # Calculate suit activation counts
+        suit_counts: dict = {}
+        for eq in [body_equip, arm_equip, first_acc, second_acc]:
+            if eq and eq.get("suitId"):
+                suit_counts[eq["suitId"]] = suit_counts.get(eq["suitId"], 0) + 1
+        # Annotate each equip with suit activated count
+        for eq in [body_equip, arm_equip, first_acc, second_acc]:
+            if eq and eq.get("suitId"):
+                eq["suitCount"] = suit_counts.get(eq["suitId"], 0)
+            elif eq:
+                eq["suitCount"] = 0
+
+        tact_slot = detail.get("tacticalItem")
+        tactical_item = None
+        if isinstance(tact_slot, dict):
+            tact_data = tact_slot.get("tacticalItemData", {})
+            if tact_data and tact_data.get("name"):
+                # Resolve activeEffect template params
+                effect_text = tact_data.get("activeEffect", "")
+                effect_params = tact_data.get("activeEffectParams") or {}
+                import re as _re2
+                for k, v in effect_params.items():
+                    effect_text = _re2.sub(r'\{' + k + r'(?::[^}]+)?\}', str(v), effect_text)
+                # Strip rich text tags like <@ba.vup>, </>
+                effect_text = _re2.sub(r'<[^>]+>', '', effect_text).strip()
+                tact_r_raw = tact_data.get("rarity", {})
+                tact_r = _parse_rarity(tact_r_raw)
+                tactical_item = {
+                    "name": tact_data.get("name", ""),
+                    "iconUrl": tact_data.get("iconUrl", ""),
+                    "activeEffect": effect_text,
+                    "rarityLabel": tact_r_raw.get("value", "") if isinstance(tact_r_raw, dict) else "",
+                    "stars": _make_stars(tact_r),
+                }
+
+        tags_list = [t for t in (char_data.get("tags") or []) if t]
+        illustration_url = (char_data.get("illustrationUrl") or char_data.get("avatarRtUrl") or matched.get("avatarRtUrl", ""))
+        avatar_sq_url = char_data.get("avatarSqUrl") or char_data.get("avatarRtUrl") or ""
+
+        user_nickname = base_info.get("name") or binding.get("nickname") or "干员"
+        user_level = int(base_info.get("level", 0) or 0)
+        user_avatar_url = base_info.get("avatarUrl") or binding.get("avatarUrl", "")
+        user_avatar_b64 = await self.get_b64(user_avatar_url) if user_avatar_url else ""
+
+        res_prefix = "file:///" + os.path.abspath(self.renderer.res_path).replace("\\", "/") + "/"
+        render_data = {
+            "name": char_data.get("name", char_name),
+            "level": detail.get("level", 0),
+            "stars": stars,
+            "rarity": rarity,
+            "profession": char_data.get("profession", {}).get("value", ""),
+            "property": char_data.get("property", {}).get("value", ""),
+            "weaponTypeName": char_data.get("weaponType", {}).get("value", ""),
+            "illustrationUrl": illustration_url,
+            "avatarSqUrl": avatar_sq_url,
+            "evolvePhase": evolve_phase,
+            "potentialStars": potential_stars,
+            "tagsList": tags_list,
+            "displaySkills": display_skills,
+            "weapon": weapon,
+            "bodyEquip": body_equip,
+            "armEquip": arm_equip,
+            "firstAccessory": first_acc,
+            "secondAccessory": second_acc,
+            "tacticalItem": tactical_item,
+            "userNickname": user_nickname,
+            "userLevel": user_level,
+            "userAvatar": user_avatar_b64,
+            "friendPanel": None,
+            "pluResPath": res_prefix,
+            "copyright": "Endfield Plugin | AstrBot",
+        }
         try:
             img_url = await self.renderer.render_html("operator/operator.html", render_data)
             if img_url:
@@ -1008,7 +1185,7 @@ class EndfieldPlugin(Star):
                 return
         except Exception as e:
             logger.warning(f"渲染干员面板失败，使用文本回退: {e}")
-        yield event.plain_result(f"【{char_name}】Lv.{render_data['level']} ({rarity}星)")
+        yield event.plain_result(f"【{char_name}】Lv.{render_data['level']} ({rarity}★)")
 
     @filter.command("抽卡记录")
     async def gacha_records(self, event: AstrMessageEvent, page: int = 1):
@@ -1501,10 +1678,11 @@ class EndfieldPlugin(Star):
              yield event.plain_result("请在群聊中使用此命令。")
              return
              
-        group_id = event.get_group_id()
+        group_id = str(event.get_group_id())
+        msg_origin = event.unified_msg_origin
         latest = await self.client.get_announcement_latest()
         ts = latest.get("published_at_ts", 0) if latest else 0
-        await self.announce_mgr.add_subscription(group_id, ts)
+        await self.announce_mgr.add_subscription(group_id, ts, msg_origin)
         yield event.plain_result("已成功订阅公告推送！")
 
     @filter.command("取消订阅公告")
@@ -1519,34 +1697,22 @@ class EndfieldPlugin(Star):
 
     @filter.command("订阅理智")
     async def subscribe_sanity(self, event: AstrMessageEvent):
-        '''订阅理智推送（满时提醒）'''
-        if not event.get_group_id():
-            yield event.plain_result("请在群聊中使用此命令，用于理智满时艾特您。")
-            return
-            
+        '''订阅理智推送（满时提醒，覆盖旧订阅）'''
         user_id = event.get_sender_id()
-        group_id = event.get_group_id()
         binding = await self.user_mgr.get_primary_binding(user_id)
         if not binding:
             yield event.plain_result("请先绑定森空岛账号后再订阅理智提醒。")
             return
             
-        success = await self.sanity_mgr.add_subscription(user_id, group_id)
-        if success:
-            yield event.plain_result("已成功订阅理智满时提醒！")
-        else:
-            yield event.plain_result("您已经在该群聊中订阅过理智提醒。")
+        msg_origin = event.unified_msg_origin
+        await self.sanity_mgr.add_subscription(str(user_id), msg_origin)
+        yield event.plain_result("已成功订阅理智满时提醒！将在本会话推送通知。")
 
     @filter.command("取消订阅理智")
     async def unsubscribe_sanity(self, event: AstrMessageEvent):
         '''取消理智推送'''
-        if not event.get_group_id():
-            yield event.plain_result("请在群聊中使用此命令。")
-            return
-            
         user_id = event.get_sender_id()
-        group_id = event.get_group_id()
-        success = await self.sanity_mgr.remove_subscription(user_id, group_id)
+        success = await self.sanity_mgr.remove_subscription(str(user_id))
         if success:
             yield event.plain_result("已取消理智订阅。")
         else:
@@ -1777,6 +1943,7 @@ class EndfieldPlugin(Star):
                 continue
                 
             ts = int(latest["published_at_ts"])
+
             for s in subs:
                 if ts > int(s.get("since_ts", 0)):
                     # Push image instead of plain text if possible
@@ -1788,20 +1955,28 @@ class EndfieldPlugin(Star):
                         
                     render_data = build_detail_render_data(item)
                     url = await self.renderer.render_html("announcement/detail.html", render_data)
+                    msg_origin = s.get("msg_origin", "")
+                    if not msg_origin:
+                        logger.warning(f"[公告订阅] 群 {s.get('group_id')} 缺少 msg_origin，跳过推送")
+                        await self.announce_mgr.update_since_ts(s["group_id"], ts)
+                        continue
                     try:
                         if url:
-                            await self.context.send_message(s["group_id"], [Image.fromFileSystem(url.replace("file:///", ""))])
+                            img_path = url.replace("file:///", "")
+                            await self.context.send_message(msg_origin, [Image.fromFileSystem(img_path)])
                         else:
                             msg = f"【终末地新公告】\n{latest.get('title')}\n{latest.get('summary') or ''}"
-                            await self.context.send_message(s["group_id"], [Plain(msg)])
+                            await self.context.send_message(msg_origin, [Plain(msg)])
                     except Exception as e:
-                        logger.error(f"Failed to push announcement to {s['group_id']}: {e}")
+                        logger.error(f"Failed to push announcement to {msg_origin}: {e}")
                     await self.announce_mgr.update_since_ts(s["group_id"], ts)
 
     async def sanity_task(self):
-        '''理智满值通知推送任务 (20分钟轮询)'''
+        '''理智满值通知推送任务（可配置轮询间隔）'''
         while True:
-            await asyncio.sleep(20 * 60)
+            poll_interval_mins = int(self.config.get('sanity_poll_interval', 20))
+            poll_interval_secs = max(60, poll_interval_mins * 60)
+            await asyncio.sleep(poll_interval_secs)
             subs = await self.sanity_mgr.get_subscriptions()
             if not subs:
                 continue
@@ -1810,10 +1985,14 @@ class EndfieldPlugin(Star):
             
             for sub in subs:
                 user_id = sub.get("user_id")
-                group_id = sub.get("group_id")
+                msg_origin = sub.get("msg_origin", "")
                 last_notified = sub.get("last_notified", 0)
 
-                # Avoid notifying twice within 4 hours to prevent spam
+                if not msg_origin:
+                    logger.warning(f"[理智订阅] 用户 {user_id} 缺少 msg_origin，指婁 可重新订阅")
+                    continue
+
+                # 避免 4 小时内重复推送
                 if now_ts - last_notified < 3600 * 4:
                     continue
                 
@@ -1839,15 +2018,16 @@ class EndfieldPlugin(Star):
                     
                     if s_current > 0 and s_max > 0 and s_current >= s_max:
                         try:
-                            msg = f"尊敬的干员管理员，您的理智已经达到上限（{s_current}/{s_max}），请及时清理。"
-                            await self.context.send_message(group_id, [At(qq=user_id), Plain("【理智已满】\n"), Plain(msg)])
-                            await self.sanity_mgr.update_last_notified(user_id, group_id, now_ts)
+                            nick = binding.get('nickname') or '干员'
+                            msg = f"【理智已满】{nick}，您的理智已达到上限（{s_current}/{s_max}），请及时消耗。"
+                            await self.context.send_message(msg_origin, [At(qq=user_id), Plain(f"\n{msg}")])
+                            await self.sanity_mgr.update_last_notified(user_id, now_ts)
                         except Exception as e:
-                            logger.error(f"Failed to push sanity notification: {e}")
+                            logger.error(f"Failed to push sanity notification to {msg_origin}: {e}")
                 except Exception as e:
                     logger.error(f"Sanity task error for user {user_id}: {e}")
                     
-                # Rate limit safety
+                # 限速
                 await asyncio.sleep(1.5)
 
     async def auto_sign_in_task(self):

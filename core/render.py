@@ -39,7 +39,9 @@ class Renderer:
     def _adapt_template(self, content: str) -> str:
         """Converts Yunzai (art-template) syntax to Jinja2."""
         import re
-        adapted = content.replace("$value", "item")
+        # Handle $index before $value to avoid partial replacements
+        adapted = content.replace("$index+1", "loop.index").replace("$index", "loop.index0")
+        adapted = adapted.replace("$value", "item")
         
         def fix_condition(match):
             cond = match.group(1).replace("===", "==").replace("!==", "!=").replace("&&", "and").replace("||", "or").replace("null", "none").replace(".length", "|length")
@@ -73,7 +75,10 @@ class Renderer:
             path = os.path.join(self.res_path, match.group(1))
             if os.path.exists(path):
                 with open(path, "r", encoding="utf-8") as f:
-                    return f"<style>\n{f.read()}\n</style>"
+                    css_content = f.read()
+                # Strip any art-template / Jinja2-like expressions from CSS to avoid Jinja2 parse errors
+                css_content = self._adapt_template(css_content)
+                return f"<style>\n{css_content}\n</style>"
             return ""
             
         def inline_image(match):
@@ -87,7 +92,18 @@ class Renderer:
 
         html = re.sub(r'<link\s+rel="stylesheet"\s+href="\{\{(?:_res_path|pluResPath)\}\}([^"]+\.css)">', inline_css, html)
         html = re.sub(r'src="\{\{(?:_res_path|pluResPath)\}\}([^"]+\.(?:png|jpg|jpeg|gif|svg|webp))"', inline_image, html)
-        html = re.sub(r'url\(\s*[\'"]?\{\{(?:_res_path|pluResPath)\}\}([^)"]+?)[\'"]?\s*\)', inline_image, html)
+        html = re.sub(r'url\(\s*[\'"]?\{\{(?:_res_path|pluResPath)\}\}([^)"\']+?)[\'"]?\s*\)', inline_image, html)
+        # Also handle inline style="...url({{pluResPath}}...)" in HTML element attributes
+        def inline_style_bg(m):
+            path = os.path.join(self.res_path, m.group(1))
+            if os.path.exists(path):
+                import mimetypes, base64
+                mime = mimetypes.guess_type(path)[0] or "image/png"
+                with open(path, "rb") as f:
+                    b64 = base64.b64encode(f.read()).decode("utf-8")
+                return f'url(data:{mime};base64,{b64})'
+            return m.group(0)
+        html = re.sub(r'url\(\{\{(?:pluResPath|_res_path)\}\}([^)]+)\)', inline_style_bg, html)
         return html
 
     def _render_jinja(self, template_str: str, data: Dict[str, Any]) -> Optional[str]:

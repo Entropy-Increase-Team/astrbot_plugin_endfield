@@ -121,7 +121,7 @@ astrbot_plugin_endfield/
 | `便签` | 账号数据总览 |
 | `理智` / `订阅理智` | 理智查询/满值推送 |
 | `干员列表` | 持有干员图鉴 |
-| `<干员名>面板` | 单干员详情（开发中） |
+| `<干员名>面板` | 单干员详情  |
 | `抽卡记录` | 近期抽卡历史 |
 | `抽卡分析` | 全卡池统计分析 |
 | `签到` | 执行每日签到 |
@@ -150,6 +150,10 @@ astrbot_plugin_endfield/
 | <img src="https://github.com/user-attachments/assets/df71bbdf-febb-4f00-95ba-157f5788629f" width="400"> | <img src="https://github.com/user-attachments/assets/cf3b53b9-fa78-4b71-b682-9077dfafc3c1" width="400"> |
 
 | `公告` | `日历` |
+|:---:|:---:|
+| <img src="https://github.com/user-attachments/assets/99da9389-1326-487c-b11e-d526d0e251fb" width="400"> | <img src="https://github.com/user-attachments/assets/b3dbe4c9-d916-4abd-aeee-a434a43d4c0f" width="600"> |
+
+| `xx面板` | `zmd` |
 |:---:|:---:|
 | <img src="https://github.com/user-attachments/assets/99da9389-1326-487c-b11e-d526d0e251fb" width="400"> | <img src="https://github.com/user-attachments/assets/b3dbe4c9-d916-4abd-aeee-a434a43d4c0f" width="600"> |
 
@@ -200,6 +204,12 @@ astrbot_plugin_endfield/
 
 <details>
 <summary>点击展开版本历史</summary>
+
+### 1.7.0 (2026-03-02)
+- ✨ 添加并重构干员面板 (`xxx面板`)：全新左右布局，支持展示武器被动、精炼、装备套装属性及详情
+- 🎨 帮助菜单图片版重绘 (`zmd`)
+- 🚀 修复了 IDE 格式化可能导致的模板语法破碎问题
+- 🔧 修复公告订阅逻辑，简化配置项
 
 ### 1.6.0 (2026-03-01)
 - ✨ 新增 `/日历` 指令，自动获取Wiki横幅
@@ -259,4 +269,5 @@ astrbot_plugin_endfield/
 [⬆ 返回顶部](#-astrbot_plugin_endfield)
 
 </div>
+
 

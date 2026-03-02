@@ -110,14 +110,15 @@ class AnnouncementManager(AsyncDataManager):
     def __init__(self, data_dir: str):
         super().__init__(data_dir, "announcements.json", {"subscriptions": [], "last_ids": []})
 
-    async def add_subscription(self, group_id: str, since_ts: int):
+    async def add_subscription(self, group_id: str, since_ts: int, msg_origin: str = ""):
         async with self.lock:
             for sub in self.data["subscriptions"]:
                 if sub["group_id"] == group_id:
                     sub["since_ts"] = since_ts
+                    sub["msg_origin"] = msg_origin
                     await self._save()
                     return
-            self.data["subscriptions"].append({"group_id": group_id, "since_ts": since_ts})
+            self.data["subscriptions"].append({"group_id": group_id, "since_ts": since_ts, "msg_origin": msg_origin})
             await self._save()
 
     async def remove_subscription(self, group_id: str):
@@ -141,25 +142,27 @@ class SanityManager(AsyncDataManager):
     def __init__(self, data_dir: str):
         super().__init__(data_dir, "sanity_subscriptions.json", {"subscriptions": []})
 
-    async def add_subscription(self, user_id: str, group_id: str):
+    async def add_subscription(self, user_id: str, msg_origin: str):
+        """Add or overwrite the subscription for a user (one per user, latest session wins)."""
         user_id = str(user_id)
-        group_id = str(group_id)
         async with self.lock:
             for sub in self.data["subscriptions"]:
-                if sub.get("user_id") == user_id and sub.get("group_id") == group_id:
-                    return False
-            self.data["subscriptions"].append({"user_id": user_id, "group_id": group_id, "last_notified": 0})
+                if sub.get("user_id") == user_id:
+                    sub["msg_origin"] = msg_origin
+                    sub["last_notified"] = 0
+                    await self._save()
+                    return True
+            self.data["subscriptions"].append({"user_id": user_id, "msg_origin": msg_origin, "last_notified": 0})
             await self._save()
             return True
 
-    async def remove_subscription(self, user_id: str, group_id: str):
+    async def remove_subscription(self, user_id: str):
         user_id = str(user_id)
-        group_id = str(group_id)
         async with self.lock:
             initial_len = len(self.data["subscriptions"])
             self.data["subscriptions"] = [
-                s for s in self.data["subscriptions"] 
-                if not (s.get("user_id") == user_id and s.get("group_id") == group_id)
+                s for s in self.data["subscriptions"]
+                if s.get("user_id") != user_id
             ]
             if len(self.data["subscriptions"]) < initial_len:
                 await self._save()
@@ -170,12 +173,11 @@ class SanityManager(AsyncDataManager):
         async with self.lock:
             return copy.deepcopy(self.data.get("subscriptions", []))
 
-    async def update_last_notified(self, user_id: str, group_id: str, ts: int):
+    async def update_last_notified(self, user_id: str, ts: int):
         user_id = str(user_id)
-        group_id = str(group_id)
         async with self.lock:
             for sub in self.data["subscriptions"]:
-                if sub.get("user_id") == user_id and sub.get("group_id") == group_id:
+                if sub.get("user_id") == user_id:
                     sub["last_notified"] = ts
                     break
             await self._save()

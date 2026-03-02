@@ -40,5 +40,10 @@
     "description": "自动签到执行时间 (格式 HH:MM)",
     "type": "string",
     "default": "00:05"
+  },
+  "sanity_poll_interval": {
+    "description": "理智订阅轮询间隔（分钟）",
+    "type": "int",
+    "default": 20
   }
 }
