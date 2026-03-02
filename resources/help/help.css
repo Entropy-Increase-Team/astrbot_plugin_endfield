@@ -9,29 +9,32 @@
   box-sizing: border-box;
 }
 
-/* 宽度由模板内联 style 控制；背景使用 bg.png，内容区保持浅色 */
-body {
+/* Background and layout is applied to #help-wrapper because it is the first element 
+   Playwright screenshots instead of the body. */
+#help-wrapper {
   font-family: 'HarmonyOS Sans SC', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  background-image: url('img/bg.png');
+  background-image: url('../img/吊车.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   color: #000000;
-  margin: 0;
-  padding: 20px;
+  padding: 40px;
   display: flex;
   justify-content: center;
-  min-height: 100vh;
+  align-items: center;
+  /* Center vertically for 16:9 viewport */
 }
 
 /* 容器：半透明白底；左右留足内边距，避免命令网格右侧贴边 */
 .container {
   width: 100%;
-  background-color: rgba(255, 255, 255, 0.94);
-  padding: 20px 60px;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(229, 231, 235, 0.8);
+  background-color: rgba(255, 255, 255, 0.90);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 40px 60px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(229, 231, 235, 0.4);
 }
 
 .header {
@@ -145,6 +148,7 @@ body {
   font-size: 2.2em;
   color: #000000;
 }
+
 .copyright .version {
   color: #007180;
   display: inline-block;
