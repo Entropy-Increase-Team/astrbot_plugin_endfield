@@ -285,6 +285,7 @@ class EndfieldPlugin(Star):
                         {"title": "干员列表", "desc": "持有干员图鉴", "icon": True},
                         {"title": "<干员名>面板", "desc": "单干员详情", "icon": True},
                         {"title": "同步面板", "desc": "同步干员战斗属性数据", "icon": True},
+                        {"title": "全服统计", "desc": "查询全服抽卡数据", "icon": True},
                         {"title": "抽卡记录", "desc": "近期抽卡历史", "icon": True},
                         {"title": "抽卡分析", "desc": "全卡池统计分析", "icon": True},
                         {"title": "签到", "desc": "执行每日签到", "icon": True},
@@ -2925,3 +2926,4 @@ class EndfieldPlugin(Star):
         if self.renderer:
             await self.renderer.close()
         logger.info("Endfield plugin terminated.")
+
