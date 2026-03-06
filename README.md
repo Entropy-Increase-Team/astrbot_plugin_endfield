@@ -263,7 +263,12 @@ astrbot_plugin_endfield/
 
 ## 🙏 鸣谢
 
-本项目参考自Yunzai插件 [endfield-plugin](https://github.com/Entropy-Increase-Team/endfield-plugin)。
+
+### 其他框架
+
+- **云崽**：[endfield-plugin](https://github.com/Entropy-Increase-Team/endfield-plugin)
+- **Astrbot**：[astrbot_plugin_endfield](https://github.com/Entropy-Increase-Team/astrbot_plugin_endfield)
+- **Nonebot2**：[nonebot-plugin-endfield](https://github.com/Entropy-Increase-Team/nonebot-plugin-endfield)
 
 特别感谢：
 - [@QingYingX](https://github.com/QingYingX) & [@浅巷墨黎](https://github.com/dnyo666)
@@ -287,6 +292,7 @@ astrbot_plugin_endfield/
 [⬆ 返回顶部](#-astrbot_plugin_endfield)
 
 </div>
+
 
 
 
