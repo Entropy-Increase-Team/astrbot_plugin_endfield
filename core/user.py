@@ -5,6 +5,7 @@ import copy
 from typing import List, Dict, Optional, Any
 from astrbot.api import logger
 
+
 class AsyncDataManager:
     def __init__(self, data_dir: str, filename: str, default_data: Any):
         self.data_dir = data_dir
@@ -18,7 +19,7 @@ class AsyncDataManager:
     def _load(self) -> Any:
         if os.path.exists(self.path):
             try:
-                with open(self.path, 'r', encoding='utf-8') as f:
+                with open(self.path, "r", encoding="utf-8") as f:
                     return json.load(f)
             except Exception as e:
                 logger.error(f"Failed to load {self.path}: {e}")
@@ -27,7 +28,7 @@ class AsyncDataManager:
     async def _save(self):
         try:
             temp_path = self.path + ".tmp"
-            with open(temp_path, 'w', encoding='utf-8') as f:
+            with open(temp_path, "w", encoding="utf-8") as f:
                 json.dump(self.data, f, ensure_ascii=False, indent=4)
             os.replace(temp_path, self.path)
         except Exception as e:
@@ -36,6 +37,7 @@ class AsyncDataManager:
     async def get_all_data(self) -> Any:
         async with self.lock:
             return copy.deepcopy(self.data)
+
 
 class UserManager(AsyncDataManager):
     def __init__(self, data_dir: str):
@@ -60,15 +62,19 @@ class UserManager(AsyncDataManager):
             # 规范化并清理绑定信息
             cleaned = []
             seen_role_ids = set()
-            
-            sorted_bindings = sorted(bindings, key=lambda x: (x.get("is_primary", False), x.get("last_sync", 0)), reverse=True)
-            
+
+            sorted_bindings = sorted(
+                bindings,
+                key=lambda x: (x.get("is_primary", False), x.get("last_sync", 0)),
+                reverse=True,
+            )
+
             for b in sorted_bindings:
                 role_id = b.get("role_id")
                 if role_id not in seen_role_ids:
                     cleaned.append(b)
                     seen_role_ids.add(role_id)
-            
+
             if cleaned:
                 has_primary = False
                 for b in cleaned:
@@ -79,7 +85,7 @@ class UserManager(AsyncDataManager):
                             has_primary = True
                 if not has_primary:
                     cleaned[0]["is_primary"] = True
-                    
+
             self.data[user_id] = cleaned
             await self._save()
 
@@ -102,6 +108,7 @@ class UserManager(AsyncDataManager):
                     all_b.append(b_copy)
             return all_b
 
+
 class SimulateManager(AsyncDataManager):
     def __init__(self, data_dir: str):
         super().__init__(data_dir, "simulate_state.json", {})
@@ -111,7 +118,9 @@ class SimulateManager(AsyncDataManager):
             if scope not in self.data:
                 self.data[scope] = {}
                 await self._save()
-            return copy.deepcopy(self.data[scope].get(pool_type, {"gacha_history": [], "pity": 0}))
+            return copy.deepcopy(
+                self.data[scope].get(pool_type, {"gacha_history": [], "pity": 0})
+            )
 
     async def save_state(self, scope: str, pool_type: str, state: Dict):
         async with self.lock:
@@ -120,11 +129,16 @@ class SimulateManager(AsyncDataManager):
             self.data[scope][pool_type] = state
             await self._save()
 
+
 class AnnouncementManager(AsyncDataManager):
     def __init__(self, data_dir: str):
-        super().__init__(data_dir, "announcements.json", {"subscriptions": [], "last_ids": []})
+        super().__init__(
+            data_dir, "announcements.json", {"subscriptions": [], "last_ids": []}
+        )
 
-    async def add_subscription(self, group_id: str, since_ts: int, msg_origin: str = ""):
+    async def add_subscription(
+        self, group_id: str, since_ts: int, msg_origin: str = ""
+    ):
         async with self.lock:
             for sub in self.data["subscriptions"]:
                 if sub["group_id"] == group_id:
@@ -132,12 +146,16 @@ class AnnouncementManager(AsyncDataManager):
                     sub["msg_origin"] = msg_origin
                     await self._save()
                     return
-            self.data["subscriptions"].append({"group_id": group_id, "since_ts": since_ts, "msg_origin": msg_origin})
+            self.data["subscriptions"].append(
+                {"group_id": group_id, "since_ts": since_ts, "msg_origin": msg_origin}
+            )
             await self._save()
 
     async def remove_subscription(self, group_id: str):
         async with self.lock:
-            self.data["subscriptions"] = [s for s in self.data["subscriptions"] if s["group_id"] != group_id]
+            self.data["subscriptions"] = [
+                s for s in self.data["subscriptions"] if s["group_id"] != group_id
+            ]
             await self._save()
 
     async def get_subscriptions(self) -> List[Dict]:
@@ -151,6 +169,7 @@ class AnnouncementManager(AsyncDataManager):
                     sub["since_ts"] = ts
                     break
             await self._save()
+
 
 class SanityManager(AsyncDataManager):
     def __init__(self, data_dir: str):
@@ -166,7 +185,9 @@ class SanityManager(AsyncDataManager):
                     sub["last_notified"] = 0
                     await self._save()
                     return True
-            self.data["subscriptions"].append({"user_id": user_id, "msg_origin": msg_origin, "last_notified": 0})
+            self.data["subscriptions"].append(
+                {"user_id": user_id, "msg_origin": msg_origin, "last_notified": 0}
+            )
             await self._save()
             return True
 
@@ -175,8 +196,7 @@ class SanityManager(AsyncDataManager):
         async with self.lock:
             initial_len = len(self.data["subscriptions"])
             self.data["subscriptions"] = [
-                s for s in self.data["subscriptions"]
-                if s.get("user_id") != user_id
+                s for s in self.data["subscriptions"] if s.get("user_id") != user_id
             ]
             if len(self.data["subscriptions"]) < initial_len:
                 await self._save()
@@ -195,6 +215,7 @@ class SanityManager(AsyncDataManager):
                     sub["last_notified"] = ts
                     break
             await self._save()
+
 
 class MaaendManager(AsyncDataManager):
     def __init__(self, data_dir: str):
@@ -224,9 +245,58 @@ class MaaendManager(AsyncDataManager):
     async def set_default_device(self, user_id: Any, device_id: str):
         user_id = str(user_id)
         async with self.lock:
-            if user_id in self.data["users"] and device_id in self.data["users"][user_id]["devices"]:
+            if (
+                user_id in self.data["users"]
+                and device_id in self.data["users"][user_id]["devices"]
+            ):
                 self.data["users"][user_id]["default_device"] = device_id
                 await self._save()
+
+
+class TicketManager(AsyncDataManager):
+    def __init__(self, data_dir: str):
+        super().__init__(data_dir, "ticket_subscriptions.json", {"subscriptions": []})
+
+    async def add_subscription(self, user_id: str, msg_origin: str):
+        user_id = str(user_id)
+        async with self.lock:
+            for sub in self.data["subscriptions"]:
+                if sub.get("user_id") == user_id:
+                    sub["msg_origin"] = msg_origin
+                    sub["last_notified"] = 0
+                    await self._save()
+                    return True
+            self.data["subscriptions"].append(
+                {"user_id": user_id, "msg_origin": msg_origin, "last_notified": 0}
+            )
+            await self._save()
+            return True
+
+    async def remove_subscription(self, user_id: str):
+        user_id = str(user_id)
+        async with self.lock:
+            initial_len = len(self.data["subscriptions"])
+            self.data["subscriptions"] = [
+                s for s in self.data["subscriptions"] if s.get("user_id") != user_id
+            ]
+            if len(self.data["subscriptions"]) < initial_len:
+                await self._save()
+                return True
+            return False
+
+    async def get_subscriptions(self) -> List[Dict]:
+        async with self.lock:
+            return copy.deepcopy(self.data.get("subscriptions", []))
+
+    async def update_last_notified(self, user_id: str, ts: int):
+        user_id = str(user_id)
+        async with self.lock:
+            for sub in self.data["subscriptions"]:
+                if sub.get("user_id") == user_id:
+                    sub["last_notified"] = ts
+                    break
+            await self._save()
+
 
 class SignManager(AsyncDataManager):
     def __init__(self, data_dir: str):

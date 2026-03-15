@@ -14,7 +14,7 @@
 
 html,
 body {
-  width: 580px;
+  width: 1140px;
   overflow-x: hidden;
   background: #f0f1f3;
   font-family: 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Microsoft YaHei', sans-serif;
@@ -22,7 +22,7 @@ body {
 }
 
 .gacha-analysis-container {
-  width: 580px;
+  width: 1140px;
   padding: 14px 16px 6px;
 }
 
@@ -104,7 +104,7 @@ body {
 /* ========== 统计概览 ========== */
 .stats-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: 1fr 1.6fr repeat(3, 1fr);
   gap: 8px;
   margin-bottom: 10px;
 }
@@ -112,52 +112,70 @@ body {
 .stat-item {
   background: #fff;
   border-radius: 8px;
-  padding: 10px 8px;
+  padding: 10px 12px;
   text-align: center;
   border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 
 .stat-num {
   display: block;
-  font-size: 1.3rem;
+  font-size: 1.5rem;
   font-weight: bold;
   color: #1f2937;
-  line-height: 1.2;
+  line-height: 1.1;
 }
 
 .stat-label {
   display: block;
   font-size: 0.68rem;
   color: #9ca3af;
-  margin-top: 2px;
 }
 
-.stat-6 {
-  border-color: #fecaca;
-  background: #fef2f2;
+/* 6/5/4星混合格 */
+.stat-mixed {
+  border-color: #e5e7eb;
 }
 
-.stat-6 .stat-num {
-  color: #dc2626;
+.stat-num-mixed {
+  font-size: 1.3rem;
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
 }
 
-.stat-5 {
+.stat-num-mixed .c6 { color: #dc2626; }
+.stat-num-mixed .c5 { color: #d97706; }
+.stat-num-mixed .c4 { color: #7c3aed; }
+.stat-num-mixed .sep { color: #9ca3af; font-size: 1rem; }
+
+/* 特许 UP 池 */
+.stat-up {
   border-color: #fde68a;
   background: #fffbeb;
 }
+.stat-up .stat-num { color: #d97706; }
+.stat-up .stat-label { color: #b45309; }
 
-.stat-5 .stat-num {
-  color: #d97706;
-}
-
-.stat-4 {
+/* 武器池 */
+.stat-weapon {
   border-color: #ddd6fe;
   background: #f5f3ff;
 }
+.stat-weapon .stat-num { color: #7c3aed; }
+.stat-weapon .stat-label { color: #6d28d9; }
 
-.stat-4 .stat-num {
-  color: #7c3aed;
+/* 常驻池 */
+.stat-base {
+  border-color: #bfdbfe;
+  background: #eff6ff;
 }
+.stat-base .stat-num { color: #2563eb; }
+.stat-base .stat-label { color: #1d4ed8; }
 
 /* ========== 时间 + 提示 ========== */
 .time-bar {
@@ -178,50 +196,83 @@ body {
   color: #1f2937;
 }
 
-/* ========== 池组 ========== */
-.pool-group {
-  background: #fff;
-  border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  padding: 14px 16px;
-  margin-bottom: 10px;
+/* ========== 三列主体 ========== */
+.pools-3col {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  align-items: start;
 }
 
-.pool-group:last-of-type {
-  margin-bottom: 0;
-}
-
-.pool-group-header {
+.pools-col {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #f0f0f0;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.pool-group-title {
-  font-size: 1.05rem;
+.col-header {
+  font-size: 1rem;
   font-weight: bold;
   color: #1f2937;
-  padding-left: 10px;
+  padding: 8px 14px;
+  border-radius: 8px;
   border-left: 4px solid #374151;
+  background: #fff;
 }
 
-.pool-group-empty {
+.col-header-up {
+  border-left-color: #b45309;
+  color: #b45309;
+}
+
+.col-header-base {
+  border-left-color: #0284c7;
+  color: #0284c7;
+}
+
+.col-header-weapon {
+  border-left-color: #7c3aed;
+  color: #7c3aed;
+}
+
+.col-empty {
   font-size: 0.85rem;
   color: #d1d5db;
-  padding: 8px 0;
+  padding: 16px 0;
   text-align: center;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
 }
 
 /* 池条目 */
 .pool-entry {
+  position: relative;
   padding: 10px 12px;
   margin-bottom: 8px;
   background: #f9fafb;
   border-radius: 8px;
   border: 1px solid #f0f0f0;
+  overflow: hidden;
+}
+
+/* UP 角色半透明背景（仅角色池有 upCharAvatar 时显示） */
+.pool-entry-up-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.18;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.pool-entry .pool-entry-header,
+.pool-entry .pool-entry-metrics,
+.pool-entry .star6-list {
+  position: relative;
+  z-index: 1;
 }
 
 .pool-group .pool-entry:last-child {

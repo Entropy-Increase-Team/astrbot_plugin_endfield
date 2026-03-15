@@ -111,29 +111,27 @@
           </div>
         </div>
 
-        </div>
-
-        <!-- ②-B 天赋与技术区 (New) -->
-        <div class="card talent-card">
-          <div class="card-title">天赋 <span>TALENTS</span></div>
-          <div class="talents-grid">
-            {{each talents t}}
-            <div class="talent-item">
-              <span class="talent-type">{{t.typename}}</span>
-              <span class="talent-name">{{t.name}}</span>
+        <!-- ② 技能 SKILLS（API (4) charData.skills + iconUrl） -->
+        <div class="card skills-card">
+          <div class="card-title">技能 <span>SKILLS</span></div>
+          <div class="skills-row">
+            {{each displaySkills s}}
+            {{if s.empty}}
+            <div class="skill-item empty">
+              <div class="skill-icon-wrap"><span class="skill-empty-label">—</span></div>
+              <span class="skill-name">—</span>
             </div>
+            {{else}}
+            <div class="skill-item">
+              <div class="skill-icon-wrap">
+                {{if s.iconUrl}}<img src="{{s.iconUrl}}" alt="{{s.name}}" class="skill-img" onerror="this.style.display='none'">{{/if}}
+              </div>
+              <span class="skill-name">{{s.name}}</span>
+              <span class="skill-rank">{{s.level}}{{if s.maxLevel}}/{{s.maxLevel}}{{/if}}</span>
+            </div>
+            {{/if}}
             {{/each}}
           </div>
-          {{if talentNodes.length > 0}}
-          <div class="talent-nodes-row">
-            {{each talentNodes node}}
-            <div class="node-item">
-              <span class="node-label">{{node.label}}</span>
-              <span class="node-val">{{node.value}}</span>
-            </div>
-            {{/each}}
-          </div>
-          {{/if}}
         </div>
 
         <!-- ③ 武器区 -->
@@ -157,6 +155,27 @@
               {{if weapon.passiveSkills}}
               <div class="weapon-passives">
                 {{each weapon.passiveSkills}}<span class="weapon-passive-tag">{{$value}}</span>{{/each}}
+              </div>
+              {{/if}}
+              {{if weapon.gem}}
+              <div class="weapon-gem">
+                <div class="gem-header">
+                  <img src="{{weapon.gem.icon}}" alt="" class="gem-icon" onerror="this.style.display='none'">
+                  <div class="gem-info">
+                    <span class="gem-name">{{weapon.gem.name}}</span>
+                    {{if weapon.gem.stars && weapon.gem.stars.length > 0}}
+                    <span class="gem-rarity">{{each weapon.gem.stars}}<img src="{{pluResPath}}meta/potential/star.png" alt="★" class="gem-star">{{/each}}</span>
+                    {{else if weapon.gem.rarity}}
+                    <span class="gem-rarity">{{weapon.gem.rarity}}★</span>
+                    {{/if}}
+                  </div>
+                </div>
+                {{if weapon.gem.gemSkills && weapon.gem.gemSkills.length > 0}}
+                <div class="gem-skills">
+                  <span class="gem-skills-label">基质属性</span>
+                  {{each weapon.gem.gemSkills}}<span class="gem-skill-tag">{{$value}}</span>{{/each}}
+                </div>
+                {{/if}}
               </div>
               {{/if}}
             </div>

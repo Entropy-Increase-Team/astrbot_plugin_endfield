@@ -38,14 +38,17 @@
       <!-- 成就列表 -->
       <div class="achievement-body">
         <div class="achievement-grid">
-          {{each achieveMedals medal idx}}
+          {{each medals medal idx}}
           <div class="medal-item {{if medal.isPlated}}plated{{/if}}">
             <div class="medal-icon-wrap">
-                <!-- 这里可以用勋章图，API返回的数据里好像没直接给勋章图，先用一个默认占位或者成就名缩写 -->
-                <div class="medal-placeholder">{{medal.achievementData.name[0]}}</div>
+              {{if medal.icon}}
+              <img src="{{medal.icon}}" alt="{{medal.name}}" class="medal-icon" onerror="this.style.display='none'">
+              {{else}}
+              <div class="medal-placeholder">{{medal.initial}}</div>
+              {{/if}}
             </div>
             <div class="medal-info">
-              <div class="medal-name">{{medal.achievementData.name}}</div>
+              <div class="medal-name">{{medal.name}}</div>
               <div class="medal-meta">
                 <span class="medal-level">等级 {{medal.level}}</span>
                 <span class="medal-date">{{medal.date}}</span>

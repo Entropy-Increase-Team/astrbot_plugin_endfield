@@ -1,10 +1,13 @@
 import re
 
+
 def replace_placeholders(message: str, params: dict) -> str:
     def replacer(match):
         key = match.group(1)
         return str(params.get(key, f"{{{key}}}"))
-    return re.sub(r'\{(\w+)\}', replacer, message)
+
+    return re.sub(r"\{(\w+)\}", replacer, message)
+
 
 # Basic message mapping (ported from message.yaml context)
 MESSAGES = {
@@ -31,6 +34,7 @@ MESSAGES = {
     "stamina.subscribe_ok_threshold": "订阅成功！当理智达到 {threshold} 时将推送提醒。",
     "stamina.subscribe_ok_full": "订阅成功！当理智回满时将推送提醒。",
 }
+
 
 def get_message(path: str, params: dict = None) -> str:
     msg = MESSAGES.get(path, f"[消息未配置: {path}]")
