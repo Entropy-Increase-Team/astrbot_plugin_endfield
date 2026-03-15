@@ -387,7 +387,7 @@ class EndfieldPlugin(Star):
                 )
                 asyncio.create_task(self.run_batch_sign_in())
 
-    @filter.command("zmd", alias=["菜单", "帮助"])
+    @filter.command("zmd")
     async def zmd_help(self, event: AstrMessageEvent):
         """显示终末地插件帮助菜单"""
         render_data = {
@@ -398,7 +398,7 @@ class EndfieldPlugin(Star):
             "helpGroup": [
                 {
                     "type": "tips",
-                    "tipItems": [{"title": "提示", "text": "指令触发符：/  ·  发送 菜单 / 帮助 / zmd 查看本页"}],
+                    "tipItems": [{"title": "提示", "text": "指令触发符：/  ·  发送 zmd 查看本页"}],
                 },
                 {
                     "group": "账号绑定",
