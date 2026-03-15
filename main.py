@@ -387,7 +387,7 @@ class EndfieldPlugin(Star):
                 )
                 asyncio.create_task(self.run_batch_sign_in())
 
-    @filter.command("zmd")
+    @filter.command("zmd", alias=["菜单", "帮助"])
     async def zmd_help(self, event: AstrMessageEvent):
         """显示终末地插件帮助菜单"""
         render_data = {
@@ -398,68 +398,50 @@ class EndfieldPlugin(Star):
             "helpGroup": [
                 {
                     "type": "tips",
-                    "tipItems": [{"title": "提示", "text": "指令触发符：/"}],
+                    "tipItems": [{"title": "提示", "text": "指令触发符：/  ·  发送 菜单 / 帮助 / zmd 查看本页"}],
                 },
                 {
                     "group": "账号绑定",
                     "list": [
-                        {
-                            "title": "授权登陆",
-                            "desc": "网页安全授权登录（推荐）",
-                            "icon": True,
-                        },
-                        {
-                            "title": "扫码绑定",
-                            "desc": "扫描二维码快捷登录",
-                            "icon": True,
-                        },
-                        {
-                            "title": "手机绑定 [手机号]",
-                            "desc": "验证码登录（暂不可用）",
-                            "icon": True,
-                        },
+                        {"title": "授权登陆", "desc": "网页安全授权登录（推荐）", "icon": True},
+                        {"title": "扫码绑定", "desc": "扫描二维码快捷登录", "icon": True},
+                        {"title": "手机绑定 [手机号]", "desc": "验证码登录（暂不可用）", "icon": True},
+                        {"title": "国际服登录", "desc": "邮箱+密码登录国际服", "icon": True},
                         {"title": "绑定列表", "desc": "查看所有绑定账号", "icon": True},
-                        {
-                            "title": "切换绑定 [序号]",
-                            "desc": "切换当前主账号",
-                            "icon": True,
-                        },
-                        {
-                            "title": "删除绑定 [序号]",
-                            "desc": "解绑指定账号",
-                            "icon": True,
-                        },
+                        {"title": "切换绑定 [序号]", "desc": "切换当前主账号", "icon": True},
+                        {"title": "删除绑定 [序号]", "desc": "解绑指定账号", "icon": True},
                     ],
                 },
                 {
                     "group": "数据查询",
                     "list": [
                         {"title": "便签", "desc": "账号数据总览", "icon": True},
-                        {
-                            "title": "理智 / 订阅理智",
-                            "desc": "理智查询/满值推送",
-                            "icon": True,
-                        },
+                        {"title": "理智", "desc": "理智查询", "icon": True},
                         {"title": "干员列表", "desc": "持有干员图鉴", "icon": True},
-                        {"title": "<干员名>面板", "desc": "单干员详情", "icon": True},
-                        {
-                            "title": "同步面板",
-                            "desc": "同步干员战斗属性数据",
-                            "icon": True,
-                        },
-                        {"title": "全服统计", "desc": "查询全服抽卡数据", "icon": True},
+                        {"title": "<干员名>面板", "desc": "单干员详情（技能/武器/基质）", "icon": True},
+                        {"title": "同步面板", "desc": "同步干员战斗属性数据", "icon": True},
                         {"title": "抽卡记录", "desc": "近期抽卡历史", "icon": True},
                         {"title": "抽卡分析", "desc": "全卡池统计分析", "icon": True},
+                        {"title": "抽卡分析同步", "desc": "同步抽卡数据后再分析", "icon": True},
+                        {"title": "全服统计", "desc": "全服抽卡统计与排行", "icon": True},
                         {"title": "签到", "desc": "执行每日签到", "icon": True},
                         {"title": "日历", "desc": "活动版本日历", "icon": True},
-                        {"title": "帝江号建设", "desc": "基建进度查询", "icon": True},
-                        {"title": "地区建设", "desc": "地区开发进度", "icon": True},
-                        {"title": "成就列表", "desc": "查看成就达成情况", "icon": True},
-                        {
-                            "title": "公告 / 订阅公告",
-                            "desc": "官方公告列表/推送",
-                            "icon": True,
-                        },
+                        {"title": "帝江号建设", "desc": "帝江号基建进度", "icon": True},
+                        {"title": "地区建设", "desc": "地区开发进度与调度券", "icon": True},
+                        {"title": "成就列表", "desc": "成就达成情况", "icon": True},
+                    ],
+                },
+                {
+                    "group": "公告与订阅",
+                    "list": [
+                        {"title": "公告", "desc": "官方公告列表", "icon": True},
+                        {"title": "公告最新", "desc": "获取最新一条公告全文", "icon": True},
+                        {"title": "订阅公告", "desc": "订阅公告推送", "icon": True},
+                        {"title": "取消订阅公告", "desc": "取消公告订阅", "icon": True},
+                        {"title": "订阅理智", "desc": "理智满值时推送", "icon": True},
+                        {"title": "取消订阅理智", "desc": "取消理智订阅", "icon": True},
+                        {"title": "订阅调度券", "desc": "调度券满值时推送", "icon": True},
+                        {"title": "取消订阅调度券", "desc": "取消调度券订阅", "icon": True},
                     ],
                 },
             ],
