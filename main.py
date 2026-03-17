@@ -3307,7 +3307,7 @@ class EndfieldPlugin(Star):
         user_id = event.get_sender_id()
         bind = await self.user_mgr.get_primary_binding(user_id)
         if not bind:
-            yield event.plain_result("您尚未绑定森空岛账号，请先使用 /授权登录 绑定。")
+            yield event.plain_result("您尚未绑定森空岛账号，请先使用 /授权登陆 绑定。")
             return
 
         res = await self.client.get_spaceship(
