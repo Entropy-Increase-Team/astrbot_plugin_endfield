@@ -243,8 +243,12 @@ class Renderer:
                 if not self._browser:
                     self._browser = await self._playwright.chromium.launch()
 
+            # Long scrolling pages (like announcements) exceed Chromium's 16384px GPU limit
+            # when using device_scale_factor=2. Force factor=1 for those templates.
+            scale_factor = 1.0 if "announcement" in name else 2.0
+            
             context = await self._browser.new_context(
-                device_scale_factor=2, viewport={"width": 1300, "height": 800}
+                device_scale_factor=scale_factor, viewport={"width": 1300, "height": 800}
             )
             page = await context.new_page()
 
@@ -258,10 +262,20 @@ class Renderer:
             try:
                 await page.goto(
                     f"file:///{temp_html.replace(chr(92), '/')}",
-                    wait_until="load",
+                    wait_until="networkidle",
                     timeout=self.render_timeout,
                 )
-                await page.wait_for_timeout(100)
+                # Ensure all dynamic images are fully loaded so the bounding box is correct
+                await page.evaluate('''
+                    Promise.all(Array.from(document.images).map(img => {
+                        if (img.complete) return Promise.resolve();
+                        return new Promise(resolve => {
+                            img.onload = resolve;
+                            img.onerror = resolve;
+                        });
+                    }))
+                ''')
+                await page.wait_for_timeout(200)
                 el = await page.evaluate_handle("document.body.firstElementChild")
                 box = await el.bounding_box() if el else None
                 if box:

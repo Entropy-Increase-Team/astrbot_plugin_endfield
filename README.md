@@ -224,6 +224,9 @@ astrbot_plugin_endfield/
 <details>
 <summary>点击展开版本历史</summary>
 
+### 2.7.0 (2026-03-22)
+- 🐛 公告渲染：修复长图公告（如《塔卫二畅游指南》系列）渲染截断和被挤压变形的问题
+
 ### 2.6.0 (2026-03-21)
 - 🔧 干员面板：`/api/endfield/card/char` 与云崽一致，随请求传入 `roleId` / `serverId`（与便签同一角色上下文）
 - 🔧 图片渲染：`render_timeout` 配置对 `page.goto` 等全流程生效，不再写死 15s
