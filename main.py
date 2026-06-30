@@ -138,11 +138,785 @@ def build_detail_render_data(item: dict) -> dict:
     }
 
 
+CRISIS_UNKNOWN = "未知"
+CRISIS_NUMBER_RE = re.compile(r"[+-]?\d+(?:\.\d+)?%?")
+
+
+def crisis_pick(obj, keys, fallback=""):
+    if not isinstance(obj, dict):
+        return fallback
+    for key in keys:
+        value = obj.get(key)
+        if value is not None and value != "":
+            return value
+    return fallback
+
+
+def crisis_pick_number(obj, keys, fallback=None):
+    value = crisis_pick(obj, keys, None)
+    if value is None:
+        return fallback
+    try:
+        num = float(value)
+        return int(num) if num.is_integer() else num
+    except Exception:
+        return fallback
+
+
+def crisis_to_list(value):
+    if isinstance(value, list):
+        return value
+    if not value:
+        return []
+    if isinstance(value, dict):
+        for key in ("list", "items", "tasks", "missions", "records", "data"):
+            if isinstance(value.get(key), list):
+                return value[key]
+        return [item for item in value.values() if isinstance(item, dict)]
+    return []
+
+
+def crisis_clean_text(text):
+    text = str(text or "")
+    text = re.sub(r"<@[^>]+>", "", text)
+    text = re.sub(r"<[^>]+>", "", text)
+    text = text.replace("</>", "")
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def crisis_normalize_text(text):
+    return re.sub(r"[“”\"'`·\s:：/／#]+", "", str(text or "")).lower()
+
+
+def crisis_parse_ts(value):
+    try:
+        ts = int(float(value or 0))
+        if ts > 100000000000:
+            ts = ts // 1000
+        return ts
+    except Exception:
+        return 0
+
+
+def crisis_format_date(ts):
+    ts = crisis_parse_ts(ts)
+    if not ts:
+        return ""
+    return datetime.datetime.fromtimestamp(ts).strftime("%Y/%m/%d")
+
+
+def crisis_format_datetime(ts):
+    ts = crisis_parse_ts(ts)
+    if not ts:
+        return ""
+    return datetime.datetime.fromtimestamp(ts).strftime("%m/%d %H:%M")
+
+
+def crisis_format_range(start_ts, end_ts):
+    start = crisis_parse_ts(start_ts)
+    end = crisis_parse_ts(end_ts)
+    if not start and not end:
+        return "长期开放"
+    if start and not end:
+        return f"{crisis_format_date(start)} 起"
+    if not start and end:
+        return f"至 {crisis_format_date(end)}"
+    return f"{crisis_format_date(start)} - {crisis_format_date(end)}"
+
+
+def crisis_format_duration(seconds):
+    try:
+        sec = max(0, int(float(seconds or 0)))
+    except Exception:
+        sec = 0
+    if not sec:
+        return ""
+    hour, rest = divmod(sec, 3600)
+    minute, second = divmod(rest, 60)
+    if hour:
+        return f"{hour}:{minute:02d}:{second:02d}"
+    return f"{minute:02d}:{second:02d}"
+
+
+def crisis_extract_detail(card_detail_res):
+    if not isinstance(card_detail_res, dict):
+        return {}
+    data = card_detail_res.get("data")
+    if isinstance(data, dict):
+        if isinstance(data.get("detail"), dict):
+            return data["detail"]
+        return data
+    if isinstance(card_detail_res.get("detail"), dict):
+        return card_detail_res["detail"]
+    return card_detail_res
+
+
+def crisis_extract_contracts(card_detail_res):
+    detail = crisis_extract_detail(card_detail_res)
+    raw_list = (
+        detail.get("crisisContract")
+        or detail.get("crisis_contract")
+        or detail.get("crisisContracts")
+        or []
+    )
+    contracts = []
+    for item in crisis_to_list(raw_list):
+        raw = item if isinstance(item, dict) else {"id": item}
+        status = raw.get("status") if isinstance(raw.get("status"), dict) else raw
+        contract_id = str(
+            crisis_pick(raw, ["id", "contractId", "contract_id", "activityId", "activity_id"], "")
+        ).strip()
+        name = crisis_pick(
+            status,
+            ["name", "title", "contractName", "activityName", "activity_name"],
+            contract_id or CRISIS_UNKNOWN,
+        )
+        start_ts = crisis_pick_number(
+            status,
+            ["startAtTs", "startTs", "start_ts", "activityStartTs", "activity_start_ts"],
+            0,
+        )
+        end_ts = crisis_pick_number(
+            status,
+            ["endAtTs", "endTs", "end_ts", "activityEndTs", "activity_end_ts"],
+            0,
+        )
+        if contract_id:
+            contract = dict(raw)
+            contract.update(
+                {
+                    "id": contract_id,
+                    "name": crisis_clean_text(name),
+                    "startTs": start_ts,
+                    "endTs": end_ts,
+                }
+            )
+            contracts.append(contract)
+    return contracts
+
+
+def crisis_pick_contract(contracts, keyword=""):
+    contracts = contracts if isinstance(contracts, list) else []
+    keyword = str(keyword or "").strip()
+    key = crisis_normalize_text(keyword)
+    if key:
+        exact = next(
+            (
+                item
+                for item in contracts
+                if crisis_normalize_text(item.get("id")) == key
+            ),
+            None,
+        )
+        if exact:
+            return exact
+        index_match = re.match(r"^第?(\d+)(?:个|期|号)?$", keyword)
+        if index_match:
+            index = int(index_match.group(1))
+            if 1 <= index <= len(contracts):
+                return contracts[index - 1]
+        for item in contracts:
+            fields = [
+                item.get("name"),
+                item.get("activityName"),
+                item.get("title"),
+                item.get("id"),
+            ]
+            if any(key in crisis_normalize_text(field) for field in fields):
+                return item
+        return None
+
+    now = int(time.time())
+    return (
+        next(
+            (
+                item
+                for item in contracts
+                if item.get("isInActivity") or item.get("isActive") or item.get("active")
+            ),
+            None,
+        )
+        or next(
+            (
+                item
+                for item in contracts
+                if crisis_parse_ts(item.get("startTs"))
+                and crisis_parse_ts(item.get("endTs"))
+                and crisis_parse_ts(item.get("startTs")) <= now <= crisis_parse_ts(item.get("endTs"))
+            ),
+            None,
+        )
+        or (contracts[0] if contracts else None)
+    )
+
+
+def crisis_extract_payload(res):
+    if not isinstance(res, dict):
+        return {}
+    data = res.get("data") if isinstance(res.get("data"), dict) else res
+    if isinstance(data.get("crisisContract"), dict):
+        return data["crisisContract"]
+    if isinstance(data.get("crisis_contract"), dict):
+        return data["crisis_contract"]
+    detail = data.get("detail") if isinstance(data.get("detail"), dict) else {}
+    if isinstance(detail.get("crisisContract"), dict):
+        return detail["crisisContract"]
+    if isinstance(detail.get("crisis_contract"), dict):
+        return detail["crisis_contract"]
+    return data
+
+
+def crisis_parse_param_value(value):
+    if isinstance(value, dict):
+        raw = crisis_pick(value, ["value", "val", "v", "num", "count", "raw"], None)
+        if raw is None:
+            return None
+        return crisis_parse_param_value(raw)
+    if value is None or value == "":
+        return None
+    text = str(value).strip()
+    percent = text.endswith("%")
+    try:
+        num = float(text[:-1] if percent else text)
+        return num / 100 if percent else num
+    except Exception:
+        return None
+
+
+def crisis_read_params(item):
+    params = {}
+    if not isinstance(item, dict):
+        return params
+    sources = [
+        "descParams",
+        "descParam",
+        "desc_params",
+        "descParamList",
+        "desc_param_list",
+        "descParamMap",
+        "desc_param_map",
+        "descriptionParamMap",
+        "description_param_map",
+        "descriptionParams",
+        "templateParams",
+        "template_params",
+        "paramList",
+        "param_list",
+        "paramMap",
+        "param_map",
+        "params",
+        "param",
+        "parameters",
+        "blackboard",
+        "attrs",
+        "attr",
+        "attrMap",
+        "attributeMap",
+        "values",
+        "valueMap",
+    ]
+    for source_key in sources:
+        source = item.get(source_key)
+        if isinstance(source, list):
+            for row in source:
+                if not isinstance(row, dict):
+                    continue
+                key = crisis_pick(
+                    row,
+                    ["key", "name", "id", "param", "paramKey", "param_key", "attr", "attribute"],
+                    "",
+                )
+                parsed = crisis_parse_param_value(row)
+                if key and parsed is not None:
+                    params[str(key)] = parsed
+        elif isinstance(source, dict):
+            for key, value in source.items():
+                parsed = crisis_parse_param_value(value)
+                if parsed is not None:
+                    params[str(key)] = parsed
+    return params
+
+
+def crisis_eval_expr(expr, params):
+    raw = str(expr or "").strip()
+    if raw in params:
+        return params[raw]
+
+    def replace_name(match):
+        name = match.group(0)
+        if name not in params:
+            raise KeyError(name)
+        return str(params[name])
+
+    try:
+        replaced = re.sub(r"[A-Za-z_][A-Za-z0-9_]*", replace_name, raw)
+    except KeyError:
+        return None
+    if not re.fullmatch(r"[\d+\-*/().\s]+", replaced):
+        return None
+    try:
+        value = eval(replaced, {"__builtins__": {}}, {})
+        value = float(value)
+        return value if value == value else None
+    except Exception:
+        return None
+
+
+def crisis_format_value(value, fmt):
+    fmt = str(fmt or "")
+    percent = "%" in fmt
+    digits_match = re.search(r"0\.(0+)", fmt)
+    digits = len(digits_match.group(1)) if digits_match else 0
+    num = float(value)
+    if percent and abs(num) <= 1:
+        num *= 100
+    text = f"{num:.{digits}f}" if digits else str(round(num))
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+    return f"{text}%" if percent else text
+
+
+def crisis_indicator_id(item):
+    return str(
+        crisis_pick(item, ["id", "indicatorId", "indicator_id", "riskId", "risk_id"], "")
+    ).strip()
+
+
+def crisis_render_indicator_desc(item, item_map):
+    raw_text = crisis_pick(item, ["desc", "description", "content", "effect"], "")
+    if not raw_text:
+        return ""
+
+    def repl(match):
+        ref_id, expr, fmt = match.groups()
+        source = item_map.get(str(ref_id), item) if ref_id else item
+        value = crisis_eval_expr(expr, crisis_read_params(source))
+        return crisis_format_value(value, fmt) if value is not None else ""
+
+    rendered = re.sub(r"\{(?:@([^@{}]+)@)?([^{}:]+):([^{}]+)\}", repl, str(raw_text))
+    rendered = crisis_clean_text(rendered)
+    rendered = re.sub(r"\+\s*-", "-", rendered).replace("--", "-")
+    return re.sub(r"(?:/[+-]?)+$", "", rendered).strip()
+
+
+def crisis_flatten_indicators(raw):
+    items = []
+    for item in crisis_to_list(raw):
+        children = crisis_to_list(
+            item.get("indicators") or item.get("indicatorList") or item.get("risks")
+        ) if isinstance(item, dict) else []
+        if children:
+            for child in children:
+                if isinstance(child, dict):
+                    merged = dict(child)
+                    merged.setdefault("groupName", item.get("name") or item.get("title") or "")
+                    items.append(merged)
+        elif isinstance(item, dict):
+            items.append(item)
+    return items
+
+
+def crisis_build_indicators(raw):
+    source = crisis_flatten_indicators(raw)
+    item_map = {crisis_indicator_id(item): item for item in source if crisis_indicator_id(item)}
+    indicators = []
+    for item in source:
+        unlock_keys = ["isUnlock", "unlock", "unlocked", "locked"]
+        has_unlock_key = any(key in item for key in unlock_keys)
+        unlocked = True
+        if has_unlock_key:
+            unlocked = bool(item.get("isUnlock", item.get("unlock", item.get("unlocked", not item.get("locked")))))
+        depends = []
+        for dep in crisis_to_list(item.get("depends") or item.get("dependencies") or item.get("dependIds") or item.get("depend_ids")):
+            if isinstance(dep, dict):
+                dep = crisis_pick(dep, ["name", "id"], "")
+            if dep:
+                depends.append(str(dep))
+        indicators.append(
+            {
+                "id": crisis_indicator_id(item),
+                "name": crisis_clean_text(crisis_pick(item, ["name", "title"], CRISIS_UNKNOWN)),
+                "groupName": crisis_clean_text(item.get("groupName", "")),
+                "desc": crisis_render_indicator_desc(item, item_map),
+                "score": crisis_pick_number(item, ["score", "point", "riskScore", "value"], 0) or 0,
+                "type": crisis_pick_number(item, ["type"], 1) or 1,
+                "icon": crisis_pick(item, ["icon", "iconUrl", "imageUrl"], ""),
+                "hasAward": bool(item.get("hasAward")),
+                "selected": bool(item.get("isSelected") or item.get("selected") or item.get("checked") or item.get("isChosen")),
+                "unlocked": unlocked,
+                "depends": depends,
+                "dependsText": " / ".join(depends[:3]),
+            }
+        )
+    return indicators
+
+
+def crisis_compact_descriptions(items):
+    descs = list(dict.fromkeys([item.get("desc", "") for item in items if item.get("desc")]))
+    if not descs:
+        return ""
+    if len(descs) == 1:
+        return descs[0]
+    skeletons = [CRISIS_NUMBER_RE.sub("{}", desc) for desc in descs]
+    if skeletons and all(s == skeletons[0] for s in skeletons):
+        token_rows = [CRISIS_NUMBER_RE.findall(desc) for desc in descs]
+        if token_rows and all(len(row) == len(token_rows[0]) for row in token_rows):
+            merged_tokens = []
+            for index in range(len(token_rows[0])):
+                merged_tokens.append("/".join(dict.fromkeys(row[index] for row in token_rows if row[index])))
+            offset = 0
+
+            def repl(_):
+                nonlocal offset
+                value = merged_tokens[offset] if offset < len(merged_tokens) else ""
+                offset += 1
+                return value
+
+            return re.sub(r"\{\}", repl, skeletons[0])
+    return f"{descs[0]} 等 {len(descs)} 档效果"
+
+
+def crisis_group_indicators(indicators):
+    groups = {}
+    for item in indicators:
+        key = (int(item.get("type") or 1), crisis_normalize_text(item.get("name")))
+        group = groups.setdefault(
+            key,
+            {
+                "name": item.get("name") or CRISIS_UNKNOWN,
+                "type": int(item.get("type") or 1),
+                "icon": item.get("icon", ""),
+                "items": [],
+            },
+        )
+        if not group["icon"] and item.get("icon"):
+            group["icon"] = item["icon"]
+        group["items"].append(item)
+
+    result = []
+    for group in groups.values():
+        items = group["items"]
+        scores = sorted({int(item.get("score") or 0) for item in items})
+        unlocked_count = sum(1 for item in items if item.get("unlocked"))
+        award_count = sum(1 for item in items if item.get("hasAward"))
+        selected_count = sum(1 for item in items if item.get("selected"))
+        result.append(
+            {
+                "name": group["name"],
+                "type": group["type"],
+                "icon": group["icon"],
+                "count": len(items),
+                "scores": scores,
+                "scoreText": "/".join(f"+{score}" for score in scores),
+                "scoreTags": [f"+{score}" for score in scores],
+                "descPreview": crisis_compact_descriptions(items),
+                "unlockedCount": unlocked_count,
+                "unlockedText": f"{unlocked_count}/{len(items)}",
+                "awardCount": award_count,
+                "selectedCount": selected_count,
+                "dependsText": " / ".join(
+                    dict.fromkeys(
+                        dep
+                        for item in items
+                        for dep in item.get("depends", [])
+                        if dep
+                    )
+                ),
+                "hasAward": award_count > 0,
+                "selected": selected_count > 0,
+            }
+        )
+    return sorted(result, key=lambda item: (item["type"], item["scores"][0] if item["scores"] else 0, item["name"]))
+
+
+def crisis_build_indicator_display(indicators, full=False):
+    groups = crisis_group_indicators(indicators)
+    basic_groups = [item for item in groups if item["type"] == 1]
+    advanced_groups = [item for item in groups if item["type"] == 2]
+    basic_limit = 0 if full else 8
+    advanced_limit = 0 if full else 6
+    basic = basic_groups if not basic_limit else basic_groups[:basic_limit]
+    advanced = advanced_groups if not advanced_limit else advanced_groups[:advanced_limit]
+    stats = {
+        "total": len(indicators),
+        "unlocked": sum(1 for item in indicators if item.get("unlocked")),
+        "award": sum(1 for item in indicators if item.get("hasAward")),
+        "selected": sum(1 for item in indicators if item.get("selected")),
+        "basic": sum(1 for item in indicators if int(item.get("type") or 1) == 1),
+        "advanced": sum(1 for item in indicators if int(item.get("type") or 1) == 2),
+        "basicGroups": len(basic_groups),
+        "advancedGroups": len(advanced_groups),
+    }
+    return {
+        "stats": stats,
+        "statCards": [
+            {"label": "指标总数", "value": str(stats["total"])},
+            {"label": "已解锁", "value": f"{stats['unlocked']}/{stats['total']}"},
+            {"label": "基础/综合", "value": f"{stats['basic']}/{stats['advanced']}"},
+            {"label": "带奖励", "value": str(stats["award"])},
+        ],
+        "basic": basic,
+        "advanced": advanced,
+        "basicTotal": len(basic_groups),
+        "advancedTotal": len(advanced_groups),
+        "basicHidden": max(0, len(basic_groups) - len(basic)),
+        "advancedHidden": max(0, len(advanced_groups) - len(advanced)),
+        "hint": "" if full else "指令：/危机 指标 查看完整指标；/合约 [名称或ID] 指定合约",
+    }
+
+
+def crisis_build_role_info(card_detail_res, binding):
+    detail = crisis_extract_detail(card_detail_res)
+    base = detail.get("base", {}) if isinstance(detail.get("base"), dict) else {}
+    return {
+        "name": base.get("name") or binding.get("nickname") or CRISIS_UNKNOWN,
+        "roleId": base.get("roleId") or base.get("role_id") or binding.get("role_id") or CRISIS_UNKNOWN,
+        "level": base.get("level", 0) or 0,
+        "avatarUrl": base.get("avatarUrl") or base.get("avatar_url") or binding.get("avatarUrl", ""),
+        "serverName": base.get("serverName") or binding.get("server_name") or binding.get("channel_name") or "",
+    }
+
+
+def crisis_build_char_name_map(card_detail_res):
+    detail = crisis_extract_detail(card_detail_res)
+    result = {}
+    for char in crisis_to_list(detail.get("chars")):
+        if not isinstance(char, dict):
+            continue
+        data = char.get("charData") if isinstance(char.get("charData"), dict) else char
+        name = str(
+            data.get("name")
+            or char.get("name")
+            or (data.get("template") or {}).get("name_cn")
+            or ""
+        ).strip()
+        if not name:
+            continue
+        ids = [
+            char.get("id"),
+            char.get("instId"),
+            char.get("charId"),
+            data.get("id"),
+            data.get("charId"),
+            data.get("templateId"),
+            char.get("wikiItemId"),
+        ]
+        for value in ids:
+            value = str(value or "").strip()
+            if value:
+                result[value] = name
+    return result
+
+
+def crisis_build_medal(status):
+    achieve = status.get("achieve") or status.get("medal") or status.get("achievement") or {}
+    raw = achieve.get("achievementData") if isinstance(achieve.get("achievementData"), dict) else achieve
+    level = crisis_pick_number(achieve, ["level", "initLevel"], 0) or 0
+    is_plated = bool(achieve.get("isPlated"))
+    if is_plated:
+        icon = raw.get("platedIcon") or raw.get("initIcon") or ""
+    else:
+        icon = raw.get("initIcon") or raw.get("icon") or raw.get("iconUrl") or ""
+    return {
+        "name": crisis_clean_text(crisis_pick(raw, ["name", "title"], crisis_pick(status, ["medalName", "achievementName"], "奖章"))),
+        "icon": icon,
+        "status": f"Lv.{level}{' · 镀层' if is_plated else ''}" if level else "",
+        "isPlated": is_plated,
+    }
+
+
+def crisis_build_mission_cards(status, unlocked_count, indicator_count):
+    pairs = [
+        ("挑战次数", {"count": status.get("challengeCount"), "total": None}),
+        ("周期任务", status.get("weeklyMission")),
+        ("指标任务", status.get("indicatorMission")),
+        ("阶段任务", status.get("stageMission")),
+        ("解锁指标", {"count": unlocked_count, "total": indicator_count}),
+    ]
+    cards = []
+    for label, raw in pairs:
+        if isinstance(raw, dict):
+            count = raw.get("count", raw.get("current", raw.get("progress", 0)))
+            total = raw.get("total", raw.get("max"))
+        else:
+            count = raw if raw is not None else 0
+            total = None
+        value = f"{count}/{total}" if total is not None else str(count)
+        cards.append({"label": label, "value": value})
+    return cards
+
+
+def crisis_build_dungeon(raw):
+    dungeon = raw if isinstance(raw, dict) else {}
+    feature_raw = dungeon.get("feature") or dungeon.get("features") or dungeon.get("dungeonFeature") or dungeon.get("traits") or ""
+    if isinstance(feature_raw, list):
+        feature_lines = feature_raw
+    else:
+        feature_lines = str(feature_raw).splitlines()
+    enemies = []
+    for enemy in crisis_to_list(dungeon.get("enemies") or dungeon.get("enemyList") or dungeon.get("enemyInfos"))[:8]:
+        if not isinstance(enemy, dict):
+            continue
+        enemies.append(
+            {
+                "name": crisis_clean_text(crisis_pick(enemy, ["name", "title"], CRISIS_UNKNOWN)),
+                "level": crisis_pick(enemy, ["level", "lv"], "?"),
+                "imageUrl": crisis_pick(enemy, ["imageUrl", "image_url", "icon", "avatar"], ""),
+                "ability": crisis_clean_text(crisis_pick(enemy, ["ability", "desc", "description"], "")),
+            }
+        )
+    return {
+        "name": crisis_clean_text(crisis_pick(dungeon, ["name", "title", "dungeonName"], CRISIS_UNKNOWN)),
+        "desc": crisis_clean_text(crisis_pick(dungeon, ["desc", "description"], "")),
+        "recommendLevel": crisis_pick(dungeon, ["recommendLevel", "recommend_level"], CRISIS_UNKNOWN),
+        "featureLines": [
+            crisis_clean_text(line).lstrip("-• ").strip()
+            for line in feature_lines
+            if crisis_clean_text(line)
+        ][:5],
+        "enemies": enemies,
+    }
+
+
+def crisis_build_record(raw, char_name_map):
+    if not isinstance(raw, dict):
+        return None
+    score = crisis_pick_number(raw, ["indicatorCount", "score", "bestScore", "totalScore", "maxScore"], None)
+    ts = crisis_pick_number(raw, ["ts", "time", "createTs", "challengeTs", "finishTs"], 0) or 0
+    duration = crisis_pick_number(raw, ["passTs", "duration", "costTime", "clearTime"], 0) or 0
+    chars = []
+    for char in crisis_to_list(raw.get("chars") or raw.get("team") or raw.get("operators"))[:4]:
+        if not isinstance(char, dict):
+            continue
+        data = char.get("charData") if isinstance(char.get("charData"), dict) else char
+        char_id = str(crisis_pick(data, ["charId", "char_id", "id", "instId"], "")).strip()
+        chars.append(
+            {
+                "name": crisis_clean_text(crisis_pick(data, ["name"], char_name_map.get(char_id, char_id or CRISIS_UNKNOWN))),
+                "avatarUrl": crisis_pick(data, ["avatarUrl", "avatarSqUrl", "avatarRtUrl", "icon"], ""),
+                "level": crisis_pick(data, ["level"], "?"),
+                "rarity": crisis_pick(data.get("rarity") if isinstance(data.get("rarity"), dict) else data, ["value", "rarity"], "?"),
+                "property": crisis_pick(data.get("property") if isinstance(data.get("property"), dict) else data, ["value", "property"], ""),
+                "potentialLevel": crisis_pick(data, ["potentialLevel", "potential_level"], ""),
+            }
+        )
+    pass_wave = crisis_pick_number(raw, ["passWave", "pass_wave", "wave"], 0) or 0
+    is_pass = bool(raw.get("isPass") or raw.get("is_pass"))
+    return {
+        "score": score if score is not None else "-",
+        "indicatorCount": score or 0,
+        "time": crisis_format_datetime(ts),
+        "date": crisis_format_date(ts)[5:] if ts else "",
+        "duration": crisis_format_duration(duration),
+        "isPass": is_pass,
+        "isBest": bool(raw.get("isBest")),
+        "status": "挑战成功" if is_pass else "行动中断",
+        "passWave": pass_wave,
+        "waveText": f"第 {pass_wave} 波" if pass_wave else "",
+        "chars": chars,
+    }
+
+
+def crisis_build_history(raw, char_name_map):
+    history = raw if isinstance(raw, dict) else {}
+    records = crisis_to_list(
+        history.get("records")
+        or history.get("challengeRecords")
+        or history.get("histories")
+        or history.get("list")
+    )
+    best_raw = (
+        history.get("bestRecord")
+        or history.get("best")
+        or (crisis_to_list(history.get("bestRecords"))[0] if crisis_to_list(history.get("bestRecords")) else None)
+        or (records[0] if records else None)
+    )
+    return {
+        "best": crisis_build_record(best_raw, char_name_map),
+        "records": [
+            record
+            for record in (crisis_build_record(item, char_name_map) for item in records[:12])
+            if record
+        ],
+    }
+
+
+def crisis_build_render_data(crisis, contract, card_detail_res, binding, indicator_only=False):
+    status = crisis.get("status") if isinstance(crisis.get("status"), dict) else {}
+    indicators = crisis_build_indicators(crisis.get("indicators") or [])
+    char_name_map = crisis_build_char_name_map(card_detail_res)
+    start_ts = crisis_pick_number(
+        status,
+        ["startAtTs", "startTs", "start_ts", "activityStartTs", "activity_start_ts"],
+        contract.get("startTs", 0) if isinstance(contract, dict) else 0,
+    )
+    end_ts = crisis_pick_number(
+        status,
+        ["endAtTs", "endTs", "end_ts", "activityEndTs", "activity_end_ts"],
+        contract.get("endTs", 0) if isinstance(contract, dict) else 0,
+    )
+    gameplay_end_ts = crisis_pick_number(status, ["gameplayEndAtTs", "gameplayEndTs"], 0)
+    score = crisis_pick_number(status, ["highest", "maxScore", "highestScore", "bestScore", "score"], None)
+    unlocked_count = sum(1 for item in indicators if item.get("unlocked"))
+    indicator_display = crisis_build_indicator_display(indicators, full=indicator_only)
+    selected_indicators = [item for item in indicators if item.get("selected")]
+    contract = contract if isinstance(contract, dict) else {}
+    return {
+        "title": "危机合约",
+        "isIndicatorView": bool(indicator_only),
+        "role": crisis_build_role_info(card_detail_res, binding),
+        "contract": {
+            "id": contract.get("id") or crisis_pick(status, ["id", "contractId", "contract_id"], ""),
+            "name": crisis_clean_text(crisis_pick(status, ["name", "title", "contractName", "activityName"], contract.get("name") or CRISIS_UNKNOWN)),
+            "activityName": crisis_clean_text(crisis_pick(status, ["activityName", "activity_name"], contract.get("activityName", ""))),
+            "cover": crisis_pick(status, ["kvImage", "headerImage", "kv", "kvUrl", "kvImg", "pic", "banner", "bannerUrl"], crisis_pick(contract, ["pic", "kv", "bannerUrl"], "")),
+            "headerImage": crisis_pick(status, ["headerImage"], ""),
+            "timeRange": crisis_format_range(start_ts, end_ts),
+            "gameplayTimeRange": crisis_format_range(start_ts, gameplay_end_ts) if gameplay_end_ts else "",
+        },
+        "summaryCards": crisis_build_mission_cards(status, unlocked_count, len(indicators)),
+        "highest": score if score is not None else "-",
+        "medal": crisis_build_medal(status),
+        "indicators": indicators,
+        "indicatorDisplay": indicator_display,
+        "selectedIndicators": selected_indicators[:16],
+        "dungeon": crisis_build_dungeon(crisis.get("dungeon") or {}),
+        "history": crisis_build_history(crisis.get("history") or {}, char_name_map),
+        "generatedAt": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "copyright": "Endfield Plugin | AstrBot",
+    }
+
+
+def crisis_format_text(data):
+    lines = [
+        f"【{data.get('title', '危机合约')}】{data.get('contract', {}).get('name', CRISIS_UNKNOWN)}",
+        f"账号：{data.get('role', {}).get('name', CRISIS_UNKNOWN)} Lv.{data.get('role', {}).get('level', 0)} UID {data.get('role', {}).get('roleId', '')}",
+        f"时间：{data.get('contract', {}).get('gameplayTimeRange') or data.get('contract', {}).get('timeRange', '')}",
+        f"最高评分：{data.get('highest', '-')}",
+    ]
+    for card in data.get("summaryCards", []):
+        lines.append(f"{card.get('label')}：{card.get('value')}")
+    best = data.get("history", {}).get("best")
+    if best:
+        lines.append(
+            f"最佳记录：评分 {best.get('score')} {best.get('duration') or ''} {best.get('time') or ''}".strip()
+        )
+    if data.get("isIndicatorView"):
+        display = data.get("indicatorDisplay", {})
+        stats = display.get("stats", {})
+        lines.append(f"指标：{stats.get('unlocked', 0)}/{stats.get('total', 0)} 已解锁")
+        for item in (display.get("basic") or [])[:20]:
+            lines.append(f"- {item.get('name')} {item.get('scoreText')} {item.get('descPreview')}")
+        for item in (display.get("advanced") or [])[:20]:
+            lines.append(f"- {item.get('name')} {item.get('scoreText')} {item.get('descPreview')}")
+    return "\n".join(line for line in lines if line)
+
+
 @register(
     "astrbot_plugin_endfield",
     "bvzrays & 熵增项目组",
     "终末地协议终端",
-    "2.9.0",
+    "3.0.1",
     "https://github.com/Entropy-Increase-Team/astrbot_plugin_endfield",
 )
 class EndfieldPlugin(Star):
@@ -637,6 +1411,11 @@ class EndfieldPlugin(Star):
                             "icon": True,
                         },
                         {"title": "成就列表", "desc": "成就达成情况", "icon": True},
+                        {
+                            "title": "危机合约 / 危机 / 合约 [名称或ID]",
+                            "desc": "合约记录；危机 指标查看完整词条",
+                            "icon": True,
+                        },
                     ],
                 },
                 {
@@ -669,7 +1448,7 @@ class EndfieldPlugin(Star):
             "colCount": 3,
             "colWidth": 380,
             "widthGap": 24,
-            "copyright": "Endfield Protocol Terminal | v2.6.0",
+            "copyright": "Endfield Protocol Terminal | v3.0.1",
             "pluResPath": "file:///"
             + os.path.abspath(self.renderer.res_path).replace("\\", "/")
             + "/",
@@ -684,7 +1463,7 @@ class EndfieldPlugin(Star):
             logger.warning(f"渲染菜单失败: {e}")
 
         # Fallback to plain text if rendering fails
-        help_text = "【终末地协议终端 v2.6.0】\n"
+        help_text = "【终末地协议终端 v3.0.1】\n"
         for group in render_data["helpGroup"]:
             if group.get("group"):
                 help_text += f"\n{group['group']}\n"
@@ -1797,6 +2576,145 @@ class EndfieldPlugin(Star):
             results.append(f"【{label}】签到成功！获得:{award_msg}")
 
         yield event.plain_result("\n".join(results))
+
+    def _extract_crisis_query(self, event: AstrMessageEvent):
+        msg = str(getattr(event, "message_str", "") or "").strip()
+        msg = re.sub(r"^[\s/:：#]+", "", msg)
+        msg = re.sub(r"^(?:zmd|终末地)\s*", "", msg, flags=re.IGNORECASE)
+        for command in ("危机合约", "危机", "合约"):
+            if msg.startswith(command):
+                msg = msg[len(command) :].strip()
+                break
+        indicator_only = any(word in msg for word in ("指标", "词条"))
+        keyword = msg
+        for word in ("指标", "词条", "完整"):
+            keyword = keyword.replace(word, " ")
+        keyword = re.sub(r"\s+", " ", keyword).strip()
+        return keyword, indicator_only
+
+    async def _localize_crisis_images(self, data: dict):
+        urls = []
+
+        def add(url):
+            url = str(url or "").strip()
+            if url:
+                urls.append(url)
+
+        role = data.get("role", {})
+        contract = data.get("contract", {})
+        medal = data.get("medal", {})
+        add(role.get("avatarUrl"))
+        add(contract.get("cover"))
+        add(contract.get("headerImage"))
+        add(medal.get("icon"))
+
+        records = []
+        best = data.get("history", {}).get("best")
+        if best:
+            records.append(best)
+        records.extend((data.get("history", {}).get("records") or [])[:6])
+        for record in records:
+            for char in record.get("chars", []):
+                add(char.get("avatarUrl"))
+
+        display = data.get("indicatorDisplay", {})
+        for group in (display.get("basic") or []) + (display.get("advanced") or []):
+            add(group.get("icon"))
+        for item in data.get("selectedIndicators", []):
+            add(item.get("icon"))
+        for enemy in data.get("dungeon", {}).get("enemies", []):
+            add(enemy.get("imageUrl"))
+
+        unique_urls = list(dict.fromkeys(urls))
+        if unique_urls:
+            localized = await self.parallel_download_b64(unique_urls)
+            url_map = dict(zip(unique_urls, localized))
+        else:
+            url_map = {}
+
+        def local(url):
+            return url_map.get(url, url)
+
+        role["avatarUrl"] = local(role.get("avatarUrl", ""))
+        contract["cover"] = local(contract.get("cover", ""))
+        contract["headerImage"] = local(contract.get("headerImage", ""))
+        medal["icon"] = local(medal.get("icon", ""))
+        for record in records:
+            for char in record.get("chars", []):
+                char["avatarUrl"] = local(char.get("avatarUrl", ""))
+        for group in (display.get("basic") or []) + (display.get("advanced") or []):
+            group["icon"] = local(group.get("icon", ""))
+        for item in data.get("selectedIndicators", []):
+            item["icon"] = local(item.get("icon", ""))
+        for enemy in data.get("dungeon", {}).get("enemies", []):
+            enemy["imageUrl"] = local(enemy.get("imageUrl", ""))
+
+    @filter.command("危机合约", alias=["危机", "合约"])
+    async def crisis_contract(self, event: AstrMessageEvent):
+        """查询危机合约详情"""
+        user_id = event.get_sender_id()
+        binding = await self.user_mgr.get_primary_binding(user_id)
+        if not binding:
+            yield event.plain_result("未绑定账号，请输入 /zmd 查看绑定方式。")
+            return
+
+        keyword, indicator_only = self._extract_crisis_query(event)
+        yield event.plain_result("正在获取危机合约数据...")
+
+        token = binding.get("framework_token")
+        role_id = str(binding.get("role_id", "") or "")
+        server_id = int(binding.get("server_id", 1) or 1)
+
+        card_detail = await self.client.get_card_detail(token, role_id, server_id)
+        if not card_detail:
+            yield event.plain_result("获取角色档案失败，无法读取危机合约列表。")
+            return
+
+        contracts = crisis_extract_contracts(card_detail)
+        contract = crisis_pick_contract(contracts, keyword)
+        if not contract and keyword:
+            contract = {"id": keyword, "name": keyword}
+        if not contract or not contract.get("id"):
+            yield event.plain_result("暂无危机合约数据。")
+            return
+
+        crisis_res = await self.client.get_crisis_contract(
+            token,
+            contract.get("id", ""),
+            role_id=role_id,
+            server_id=server_id,
+        )
+        crisis = crisis_extract_payload(crisis_res)
+        if not crisis or not isinstance(crisis, dict):
+            if keyword and contracts:
+                yield event.plain_result(f"未找到与「{keyword}」匹配的危机合约。")
+            else:
+                yield event.plain_result("获取危机合约数据失败。")
+            return
+
+        render_data = crisis_build_render_data(
+            crisis,
+            contract,
+            card_detail,
+            binding,
+            indicator_only=indicator_only,
+        )
+        render_data["pluResPath"] = (
+            "file:///" + os.path.abspath(self.renderer.res_path).replace("\\", "/") + "/"
+        )
+        await self._localize_crisis_images(render_data)
+
+        try:
+            url = await self.renderer.render_html(
+                "crisis-contract/crisis-contract.html", render_data
+            )
+            if url:
+                yield event.image_result(url)
+                return
+        except Exception as e:
+            logger.warning(f"渲染危机合约失败，使用文本回退: {e}")
+
+        yield event.plain_result(crisis_format_text(render_data))
 
     @filter.command("成就列表", alias=["成就查询", "成就", "成就一览"])
     async def achieve_cmd(self, event: AstrMessageEvent):

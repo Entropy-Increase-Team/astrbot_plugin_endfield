@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <title>{{ title }} - {{ contract.name }}</title>
+  <link rel="stylesheet" href="{{_res_path}}crisis-contract/crisis-contract.css">
+</head>
+
+<body>
+  <div class="crisis-page {% if isIndicatorView %}indicator-view{% endif %}">
+    <header class="render-topbar">
+      <div class="brand-block">
+        <div class="brand-title">终末地协议终端</div>
+        <div class="brand-sub">CRISIS CONTRACT REPORT</div>
+      </div>
+      <div class="viewer-block">
+        <span>{{ role.name }}</span>
+        <b>UID {{ role.roleId }}</b>
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <div class="tab {% if not isIndicatorView %}active{% endif %}">历史记录</div>
+      <div class="tab {% if isIndicatorView %}active{% endif %}">指标信息</div>
+      <div class="tab">综合情况</div>
+    </nav>
+
+    <section class="contract-banner">
+      {% if contract.cover %}
+      <img class="banner-bg" src="{{ contract.cover }}" alt="" onerror="this.style.display='none'">
+      {% endif %}
+      <div class="banner-overlay"></div>
+      <div class="banner-watermark">CONTINGENCY</div>
+      <div class="contract-info">
+        <div class="contract-name">{{ contract.name }}</div>
+        <div class="contract-time">{{ contract.gameplayTimeRange or contract.timeRange }}</div>
+      </div>
+      <div class="medal-score">
+        {% if medal.icon %}
+        <img class="medal-icon" src="{{ medal.icon }}" alt="">
+        {% endif %}
+        <div class="score-box">
+          <span>最高记录</span>
+          <strong>{{ highest }}</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="mission-grid">
+      {% for card in summaryCards[:4] %}
+      <div class="mission-cell">
+        <span>{{ card.label }}</span>
+        <strong>{{ card.value }}</strong>
+      </div>
+      {% endfor %}
+    </section>
+
+    {% if isIndicatorView %}
+    <section class="section risk-detail">
+      <div class="slash-title">// 指标信息</div>
+      <div class="risk-stat-grid">
+        {% for card in indicatorDisplay.statCards %}
+        <div class="risk-stat">
+          <span>{{ card.label }}</span>
+          <strong>{{ card.value }}</strong>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="record-titlebar">
+        <span>基础指标</span>
+        <b>{{ indicatorDisplay.basicTotal }} 组</b>
+      </div>
+      <div class="risk-list">
+        {% for item in indicatorDisplay.basic %}
+        <article class="risk-row">
+          <div class="risk-icon">
+            {% if item.icon %}<img src="{{ item.icon }}" alt="">{% else %}<span>Ⅰ</span>{% endif %}
+          </div>
+          <div class="risk-copy">
+            <div class="risk-row-head">
+              <strong>{{ item.name }}</strong>
+              <em>{{ item.scoreText }}</em>
+            </div>
+            <p>{{ item.descPreview }}</p>
+            <div class="risk-tags">
+              <span>解锁 {{ item.unlockedText }}</span>
+              {% if item.hasAward %}<span>奖励</span>{% endif %}
+            </div>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+
+      <div class="record-titlebar">
+        <span>综合指标</span>
+        <b>{{ indicatorDisplay.advancedTotal }} 组</b>
+      </div>
+      <div class="risk-list">
+        {% for item in indicatorDisplay.advanced %}
+        <article class="risk-row advanced">
+          <div class="risk-icon">
+            {% if item.icon %}<img src="{{ item.icon }}" alt="">{% else %}<span>Ⅱ</span>{% endif %}
+          </div>
+          <div class="risk-copy">
+            <div class="risk-row-head">
+              <strong>{{ item.name }}</strong>
+              <em>{{ item.scoreText }}</em>
+            </div>
+            <p>{{ item.descPreview }}</p>
+            <div class="risk-tags">
+              <span>解锁 {{ item.unlockedText }}</span>
+              {% if item.hasAward %}<span>奖励</span>{% endif %}
+            </div>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+    {% else %}
+    <section class="section">
+      <div class="slash-title">// 最佳记录</div>
+      {% if history.best %}
+      <article class="record-panel best">
+        <div class="record-band">
+          <div class="status-pass">{{ history.best.status }}</div>
+          <div class="risk-total">
+            <span>指标总计</span>
+            <strong>{{ history.best.score }}</strong>
+          </div>
+          <div class="duration">
+            <span>战斗时长</span>
+            <strong>{{ history.best.duration or "--:--" }}</strong>
+          </div>
+        </div>
+        <div class="operator-row large">
+          {% for char in history.best.chars %}
+          <div class="operator-card">
+            {% if char.avatarUrl %}
+            <img src="{{ char.avatarUrl }}" alt="{{ char.name }}">
+            {% else %}
+            <div class="op-placeholder">{{ char.name[:1] }}</div>
+            {% endif %}
+            <div class="op-info">
+              <span>LV</span>
+              <strong>{{ char.level }}</strong>
+            </div>
+            {% if char.potentialLevel %}<div class="potential">★{{ char.potentialLevel }}</div>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </article>
+      {% endif %}
+    </section>
+
+    <section class="section">
+      <div class="slash-title">// 历史记录</div>
+      <div class="history-stack">
+        {% for record in history.records[:5] %}
+        <article class="record-panel">
+          <div class="history-head">
+            <div>
+              <div class="status {% if record.isPass %}pass{% else %}fail{% endif %}">{{ record.status }}</div>
+              <div class="record-time">{{ record.time }}{% if record.duration %} · {{ record.duration }}{% endif %}</div>
+            </div>
+            <div class="record-risk">
+              <span>指标总计</span>
+              <strong>{{ record.score }}</strong>
+            </div>
+          </div>
+          <div class="operator-row">
+            {% for char in record.chars %}
+            <div class="operator-card compact">
+              {% if char.avatarUrl %}
+              <img src="{{ char.avatarUrl }}" alt="{{ char.name }}">
+              {% else %}
+              <div class="op-placeholder">{{ char.name[:1] }}</div>
+              {% endif %}
+              <div class="op-info">
+                <span>LV</span>
+                <strong>{{ char.level }}</strong>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section risk-overview">
+      <div class="record-titlebar">
+        <span>指标概览</span>
+        <b>{{ indicatorDisplay.stats.unlocked }}/{{ indicatorDisplay.stats.total }}</b>
+      </div>
+      <div class="risk-stat-grid">
+        {% for card in indicatorDisplay.statCards %}
+        <div class="risk-stat">
+          <span>{{ card.label }}</span>
+          <strong>{{ card.value }}</strong>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="risk-icon-grid">
+        {% for item in indicators[:28] %}
+        <div class="risk-square {% if item.hasAward %}award{% endif %}">
+          {% if item.icon %}
+          <img src="{{ item.icon }}" alt="{{ item.name }}">
+          {% else %}
+          <span>{{ "Ⅱ" if item.type == 2 else "Ⅰ" }}</span>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="hint">指令引导：/危机 指标 查看完整指标 · /合约 [名称或ID] 指定合约</div>
+    </section>
+
+    <section class="section dungeon-section">
+      <div class="record-titlebar">
+        <span>行动区域</span>
+        <b>Lv.{{ dungeon.recommendLevel }}</b>
+      </div>
+      <div class="dungeon-card">
+        <h3>{{ dungeon.name }}</h3>
+        {% if dungeon.desc %}<p>{{ dungeon.desc }}</p>{% endif %}
+        {% if dungeon.featureLines %}
+        <ul>
+          {% for line in dungeon.featureLines %}
+          <li>{{ line }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+    </section>
+    {% endif %}
+
+    <footer>
+      <span>{{ generatedAt }} · {{ copyright }}</span>
+      {% if isIndicatorView %}
+      <span>指令：/危机 返回历史记录</span>
+      {% else %}
+      <span>指令：/危机 指标 查看完整指标</span>
+      {% endif %}
+    </footer>
+  </div>
+</body>
+
+</html>

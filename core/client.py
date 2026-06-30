@@ -272,6 +272,26 @@ class EndfieldClient:
             framework_token=framework_token,
         )
 
+    async def get_crisis_contract(
+        self,
+        framework_token: str,
+        contract_id: str,
+        role_id: str = "",
+        server_id: int = 1,
+    ) -> Optional[Dict]:
+        """GET /api/endfield/card/crisis-contract"""
+        params: Dict[str, Any] = {"contractId": contract_id}
+        if role_id:
+            params["roleId"] = role_id
+            params["userId"] = role_id
+        if server_id:
+            params["serverId"] = server_id
+        return await self._get(
+            "/api/endfield/card/crisis-contract",
+            params=params,
+            framework_token=framework_token,
+        )
+
     async def get_card_char(
         self,
         framework_token: str,
