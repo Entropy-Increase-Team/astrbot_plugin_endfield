@@ -192,7 +192,10 @@ astrbot_plugin_endfield/
 | `全服统计` |
 |:---:|
 | <img width="1440" height="2942" alt="f282a7a2b2947e407c49ebc880bd6bd2" src="https://github.com/user-attachments/assets/a5152de5-03bf-49cc-be6e-4a12e25477b5" width="400"/> |
- |
+
+| `危机合约` | `危机 指标` |
+|:---:|:---:|
+| <img src="docs/preview/crisis-contract-record.jpg" width="260" alt="危机合约历史记录预览"> | <img src="docs/preview/crisis-contract-indicators.jpg" width="260" alt="危机合约指标预览"> |
 
 </details>
 
