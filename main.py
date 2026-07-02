@@ -916,7 +916,7 @@ def crisis_format_text(data):
     "astrbot_plugin_endfield",
     "bvzrays & 熵增项目组",
     "终末地协议终端",
-    "3.0.1",
+    "3.0.2",
     "https://github.com/Entropy-Increase-Team/astrbot_plugin_endfield",
 )
 class EndfieldPlugin(Star):
@@ -1448,7 +1448,7 @@ class EndfieldPlugin(Star):
             "colCount": 3,
             "colWidth": 380,
             "widthGap": 24,
-            "copyright": "Endfield Protocol Terminal | v3.0.1",
+            "copyright": "Endfield Protocol Terminal | v3.0.2",
             "pluResPath": "file:///"
             + os.path.abspath(self.renderer.res_path).replace("\\", "/")
             + "/",
@@ -1463,7 +1463,7 @@ class EndfieldPlugin(Star):
             logger.warning(f"渲染菜单失败: {e}")
 
         # Fallback to plain text if rendering fails
-        help_text = "【终末地协议终端 v3.0.1】\n"
+        help_text = "【终末地协议终端 v3.0.2】\n"
         for group in render_data["helpGroup"]:
             if group.get("group"):
                 help_text += f"\n{group['group']}\n"
