@@ -1,6 +1,6 @@
 import httpx
 from astrbot.api import logger
-from typing import Optional, Dict, Any, List
+from typing import Awaitable, Callable, Optional, Dict, Any, List
 
 BASE_URL = "https://end-api.shallow.ink"
 AUTH_FRONTEND_URL = "https://end.shallow.ink"
@@ -14,12 +14,15 @@ class EndfieldClient:
         verify_ssl: bool = True,
         bot_qq: str = "",
         user_qq: str = "",
+        on_auth_invalid: Optional[Callable[[str], Awaitable[None]]] = None,
     ):
         self.api_key = api_key
         self.base_url = base_url
         self.verify_ssl = verify_ssl
         self.bot_qq = str(bot_qq)
         self.user_qq = str(user_qq)
+        self.on_auth_invalid = on_auth_invalid
+        self._invalid_framework_tokens = set()
         self.client = httpx.AsyncClient(timeout=25.0, verify=self.verify_ssl)
 
     def set_caller(self, bot_qq: str = "", user_qq: str = ""):
@@ -110,6 +113,23 @@ class EndfieldClient:
                     err_hint = err_msg
             except:
                 err_hint = err_msg
+            if framework_token and self._is_invalid_framework_token_error(
+                e.response.status_code, err_hint, err_msg
+            ):
+                if framework_token in self._invalid_framework_tokens:
+                    return None
+                self._invalid_framework_tokens.add(framework_token)
+                logger.warning(
+                    f"[Endfield API] 检测到 Framework Token 已失效，停止重复请求并清理绑定: {path}"
+                )
+                if self.on_auth_invalid:
+                    try:
+                        await self.on_auth_invalid(framework_token)
+                    except Exception as callback_error:
+                        logger.error(
+                            f"[Endfield API] 清理失效绑定失败: {callback_error}"
+                        )
+                return None
             logger.error(
                 f"[Endfield API] {method} {path} -> HTTPError {e.response.status_code}: {err_hint}"
             )
@@ -123,6 +143,24 @@ class EndfieldClient:
         except Exception as e:
             logger.error(f"[Endfield API] {method} {path} -> Unknown Exception: {e}")
             return None
+
+    @staticmethod
+    def _is_invalid_framework_token_error(
+        status_code: int, err_hint: Any, err_msg: Any
+    ) -> bool:
+        if status_code != 403:
+            return False
+        error_text = f"{err_hint} {err_msg}".lower()
+        markers = (
+            "无效的 framework token",
+            "framework token 无效",
+            "invalid framework token",
+            "会话已过期",
+            "会话过期",
+            "session expired",
+            "session has expired",
+        )
+        return any(marker in error_text for marker in markers)
 
     # ─── Login ────────────────────────────────────────────────────────
     async def get_qr(self) -> Optional[Dict]:

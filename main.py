@@ -916,7 +916,7 @@ def crisis_format_text(data):
     "astrbot_plugin_endfield",
     "bvzrays & 熵增项目组",
     "终末地协议终端",
-    "3.0.2",
+    "3.0.3",
     "https://github.com/Entropy-Increase-Team/astrbot_plugin_endfield",
 )
 class EndfieldPlugin(Star):
@@ -935,7 +935,11 @@ class EndfieldPlugin(Star):
         self.auto_sign_in_notify_group = (
             config.get("auto_sign_in_notify_group", "") if config else ""
         )
-        self.client = EndfieldClient(self.api_key, verify_ssl=self.verify_ssl)
+        self.client = EndfieldClient(
+            self.api_key,
+            verify_ssl=self.verify_ssl,
+            on_auth_invalid=self._remove_invalid_framework_token_bindings,
+        )
 
         # Use StarTools.get_data_dir() for persistence compliance
         data_dir = str(StarTools.get_data_dir())
@@ -961,6 +965,39 @@ class EndfieldPlugin(Star):
         self.banner_cache = {}
         self._operator_name_cache: set = set()
         self._cache_ts = 0
+
+    async def _remove_invalid_framework_token_bindings(self, framework_token: str):
+        """认证失效时清理本地绑定，并尽力删除服务端绑定记录。"""
+        bindings = await self.user_mgr.get_all_bindings()
+        targets = [
+            binding
+            for binding in bindings
+            if binding.get("framework_token") == framework_token
+        ]
+        if not targets:
+            return
+
+        remote_deleted = 0
+        for binding in targets:
+            binding_id = binding.get("binding_id")
+            user_id = binding.get("_user_id")
+            if not binding_id or not user_id:
+                continue
+            try:
+                if await self.client.delete_binding(binding_id, user_id):
+                    remote_deleted += 1
+            except Exception as e:
+                logger.warning(
+                    f"[绑定清理] 删除服务端绑定失败 (user={user_id}, binding={binding_id}): {e}"
+                )
+
+        local_deleted = await self.user_mgr.delete_bindings_by_framework_token(
+            framework_token
+        )
+        logger.warning(
+            f"[绑定清理] Framework Token 已失效，已删除 {local_deleted} 个本地绑定，"
+            f"服务端删除 {remote_deleted} 个绑定，请重新授权登录。"
+        )
 
     async def _ensure_operator_name_cache(self, token: str):
         """用当前用户的 token 拉取全局干员列表并缓存。24h 有效期。"""
@@ -1448,7 +1485,7 @@ class EndfieldPlugin(Star):
             "colCount": 3,
             "colWidth": 380,
             "widthGap": 24,
-            "copyright": "Endfield Protocol Terminal | v3.0.2",
+            "copyright": "Endfield Protocol Terminal | v3.0.3",
             "pluResPath": "file:///"
             + os.path.abspath(self.renderer.res_path).replace("\\", "/")
             + "/",
@@ -1463,7 +1500,7 @@ class EndfieldPlugin(Star):
             logger.warning(f"渲染菜单失败: {e}")
 
         # Fallback to plain text if rendering fails
-        help_text = "【终末地协议终端 v3.0.2】\n"
+        help_text = "【终末地协议终端 v3.0.3】\n"
         for group in render_data["helpGroup"]:
             if group.get("group"):
                 help_text += f"\n{group['group']}\n"

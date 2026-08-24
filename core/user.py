@@ -98,6 +98,24 @@ class UserManager(AsyncDataManager):
             return True
         return False
 
+    async def delete_bindings_by_framework_token(self, framework_token: str) -> int:
+        """删除所有使用指定失效 Token 的本地绑定。"""
+        if not framework_token:
+            return 0
+        removed = 0
+        async with self.lock:
+            for user_id, bindings in list(self.data.items()):
+                kept = [
+                    binding
+                    for binding in bindings
+                    if binding.get("framework_token") != framework_token
+                ]
+                removed += len(bindings) - len(kept)
+                self.data[user_id] = kept
+            if removed:
+                await self._save()
+        return removed
+
     async def get_all_bindings(self) -> List[Dict]:
         async with self.lock:
             all_b = []
